@@ -133,10 +133,15 @@ pip install -r requirements.txt
 Create a `.env` file in the root project directory:
 
 ```env
-# NVIDIA NIM AI Chatbot Configuration
+# Mesh API Mandatory Gateway (OpenAI Compatible Gateway)
+MESH_API_KEY=rsk_your_mesh_api_key_here
+MESH_BASE_URL=https://api.meshapi.ai/v1
+MESH_MODEL=openai/gpt-4o
+
+# NVIDIA NIM LLM Configuration (High-Performance Endpoint Fallback)
 NVIDIA_API_KEY=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
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
-NVIDIA_MODEL=meta/llama-3.1-70b-instruct
+NVIDIA_MODEL=meta/llama-3.1-8b-instruct
 
 # Gmail Live SMTP Credentials for Direct OTP Email Delivery
 MAIL_SERVER=smtp.gmail.com
@@ -150,6 +155,17 @@ SECRET_KEY=smartreco_secret_key_super_secure_12345
 FLASK_ENV=development
 PORT=5000
 ```
+
+---
+
+## 🔑 GitHub Repository Secrets (For Automated Hackathon Evaluation)
+
+Ensure the following secrets are configured in **Settings → Secrets and variables → Actions**:
+
+| Secret Name | Value Description | Mandatory |
+| :--- | :--- | :--- |
+| `MESH_API_KEY` | Your Mesh API Key (starts with `rsk_`) from Mesh Dashboard | Yes |
+| `SUBMISSION_TOKEN` | Hackathon Submission Token from your Hackathon Dashboard | Yes |
 
 ### 4. Launch the Application
 ```bash

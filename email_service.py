@@ -1,5 +1,6 @@
 import os
 import smtplib
+import ssl
 import logging
 import threading
 from email.mime.text import MIMEText
@@ -7,42 +8,16 @@ from email.mime.multipart import MIMEMultipart
 
 logger = logging.getLogger(__name__)
 
-def _send_smtp_email(recipient_email: str, subject: str, html_content: str):
-    """Internal: Sends email via SMTP in a background thread. Non-blocking."""
-    mail_server = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
-    mail_port = int(os.environ.get("MAIL_PORT", 587))
-    mail_username = os.environ.get("MAIL_USERNAME")
-    mail_password = os.environ.get("MAIL_PASSWORD")
-    sender_email = os.environ.get("MAIL_DEFAULT_SENDER", mail_username or "noreply@smartreco.com")
+# Track last email send result for fallback display
+_last_send_results = {}
 
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = sender_email
-        msg["To"] = recipient_email
-        msg.attach(MIMEText(html_content, "html"))
+def get_send_result(email: str) -> dict:
+    """Returns the last send result for an email address."""
+    return _last_send_results.get(email, {})
 
-        with smtplib.SMTP(mail_server, mail_port, timeout=8) as server:
-            server.starttls()
-            server.login(mail_username, mail_password)
-            server.sendmail(sender_email, recipient_email, msg.as_string())
-
-        logger.info(f"Direct SMTP Email sent successfully to {recipient_email}")
-    except Exception as e:
-        logger.error(f"Failed to send direct SMTP email to {recipient_email}: {e}")
-
-
-def send_otp_email(recipient_email: str, recipient_name: str, otp_code: str) -> bool:
-    """
-    Sends a 6-digit OTP email directly to the recipient's inbox via SMTP.
-    Email is sent in a BACKGROUND THREAD so the user is not blocked.
-    """
-    mail_username = os.environ.get("MAIL_USERNAME")
-    mail_password = os.environ.get("MAIL_PASSWORD")
-
-    subject = f"SmartReco — Your 6-Digit Verification OTP: {otp_code}"
-    
-    html_content = f"""
+def _build_otp_html(recipient_name: str, otp_code: str) -> str:
+    """Builds the HTML email template for OTP verification."""
+    return f"""
     <div style="font-family: Arial, sans-serif; background-color: #0b0f19; color: #f8fafc; padding: 30px; border-radius: 12px; max-width: 550px; margin: 0 auto; border: 1px solid #6366f1;">
         <div style="text-align: center; margin-bottom: 20px;">
             <h2 style="color: #6366f1; margin: 0;">SmartReco AI Platform</h2>
@@ -66,7 +41,61 @@ def send_otp_email(recipient_email: str, recipient_name: str, otp_code: str) -> 
     </div>
     """
 
+def _send_smtp_email(recipient_email: str, subject: str, html_content: str):
+    """Internal: Attempts SMTP delivery with multiple strategies (TLS 587, SSL 465)."""
+    mail_server = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
+    mail_username = os.environ.get("MAIL_USERNAME")
+    mail_password = os.environ.get("MAIL_PASSWORD")
+    sender_email = os.environ.get("MAIL_DEFAULT_SENDER", mail_username or "noreply@smartreco.com")
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = sender_email
+    msg["To"] = recipient_email
+    msg.attach(MIMEText(html_content, "html"))
+
+    # Strategy 1: Try STARTTLS on port 587 (works locally & many hosts)
+    try:
+        with smtplib.SMTP(mail_server, 587, timeout=8) as server:
+            server.starttls()
+            server.login(mail_username, mail_password)
+            server.sendmail(sender_email, recipient_email, msg.as_string())
+        logger.info(f"Direct SMTP Email sent successfully to {recipient_email} (TLS 587)")
+        _last_send_results[recipient_email] = {"sent": True}
+        return
+    except Exception as e1:
+        logger.warning(f"SMTP TLS 587 failed for {recipient_email}: {e1}")
+
+    # Strategy 2: Try SSL on port 465 (works on hosts that block 587)
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL(mail_server, 465, timeout=8, context=context) as server:
+            server.login(mail_username, mail_password)
+            server.sendmail(sender_email, recipient_email, msg.as_string())
+        logger.info(f"Direct SMTP Email sent successfully to {recipient_email} (SSL 465)")
+        _last_send_results[recipient_email] = {"sent": True}
+        return
+    except Exception as e2:
+        logger.error(f"SMTP SSL 465 also failed for {recipient_email}: {e2}")
+        _last_send_results[recipient_email] = {"sent": False}
+
+
+def send_otp_email(recipient_email: str, recipient_name: str, otp_code: str) -> bool:
+    """
+    Sends a 6-digit OTP email directly to the recipient's inbox via SMTP.
+    Email is sent in a BACKGROUND THREAD so the user is not blocked.
+    Tries TLS (587) first, then falls back to SSL (465).
+    """
+    mail_username = os.environ.get("MAIL_USERNAME")
+    mail_password = os.environ.get("MAIL_PASSWORD")
+
+    subject = f"SmartReco — Your 6-Digit Verification OTP: {otp_code}"
+    html_content = _build_otp_html(recipient_name, otp_code)
+
     if mail_username and mail_password:
+        # Initialize as pending
+        _last_send_results[recipient_email] = {"sent": None}
+        
         # Send email in background thread — user is NOT blocked
         thread = threading.Thread(
             target=_send_smtp_email,
@@ -78,4 +107,5 @@ def send_otp_email(recipient_email: str, recipient_name: str, otp_code: str) -> 
         return True
     else:
         logger.info(f"[SIMULATED EMAIL] Direct OTP {otp_code} intended for {recipient_email} (Configure MAIL_USERNAME & MAIL_PASSWORD in .env for direct live inbox delivery)")
+        _last_send_results[recipient_email] = {"sent": False}
         return False

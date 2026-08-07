@@ -27,23 +27,27 @@ class RecommendationState(TypedDict):
     trace_id: str
 
 def get_llm_client():
-    """Returns an OpenAI client configured for NVIDIA NIM API gateway."""
+    """Returns an OpenAI client configured for Mesh API gateway or NVIDIA NIM API fallback."""
+    mesh_key = os.environ.get("MESH_API_KEY") or getattr(Config, "MESH_API_KEY", "")
+    if mesh_key and mesh_key.startswith("rsk_") and len(mesh_key) > 10:
+        base_url = os.environ.get("MESH_BASE_URL") or "https://api.meshapi.ai/v1"
+        return OpenAI(base_url=base_url, api_key=mesh_key)
+
     nvidia_key = os.environ.get("NVIDIA_API_KEY") or getattr(Config, "NVIDIA_API_KEY", None)
     if nvidia_key:
         base_url = os.environ.get("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"
         return OpenAI(base_url=base_url, api_key=nvidia_key)
-        
-    api_key = os.environ.get("MESH_API_KEY") or getattr(Config, "MESH_API_KEY", "rsk_placeholder")
+
     base_url = os.environ.get("MESH_BASE_URL") or "https://api.meshapi.ai/v1"
-    return OpenAI(base_url=base_url, api_key=api_key)
+    return OpenAI(base_url=base_url, api_key=mesh_key or "rsk_placeholder")
 
 class AgenticRecommendationEngine:
     def __init__(self):
-        nvidia_key = os.environ.get("NVIDIA_API_KEY") or getattr(Config, "NVIDIA_API_KEY", None)
-        if nvidia_key:
-            self.model_name = "meta/llama-3.1-8b-instruct"
+        mesh_key = os.environ.get("MESH_API_KEY") or getattr(Config, "MESH_API_KEY", "")
+        if mesh_key and mesh_key.startswith("rsk_") and len(mesh_key) > 10:
+            self.model_name = os.environ.get("MESH_MODEL") or getattr(Config, "MESH_MODEL", "openai/gpt-4o")
         else:
-            self.model_name = os.environ.get("MESH_MODEL", "meta/llama-3.1-8b-instruct")
+            self.model_name = os.environ.get("NVIDIA_MODEL") or getattr(Config, "NVIDIA_MODEL", "meta/llama-3.1-8b-instruct")
 
     def analyze_behavior(self, events: List[Dict[str, Any]]) -> tuple[str, str, Dict[str, Any]]:
         """

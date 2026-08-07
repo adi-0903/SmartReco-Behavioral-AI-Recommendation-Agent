@@ -374,19 +374,42 @@ def api_chat():
     ]
     context_str = "\n\n".join(context_courses) if context_courses else "No specific course matches found."
 
-    # 4. Call NVIDIA NIM API (Fast Llama-3.1 8B Model, 5s timeout)
+    # 4. Call Mesh API (Mandatory Gateway) / NVIDIA NIM API
+    mesh_key = os.environ.get('MESH_API_KEY') or app.config.get('MESH_API_KEY')
     nvidia_key = app.config.get('NVIDIA_API_KEY') or os.environ.get('NVIDIA_API_KEY')
-    nvidia_url = app.config.get('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1')
     
     reply = None
-    if nvidia_key:
+    system_prompt = (
+        "You are SmartReco AI Advisor, an intelligent recommendation guide.\n"
+        "Provide helpful, concise, articulate, and accurate answers to the user.\n"
+        "If answering tech/career questions or code requests, use markdown formatting and code blocks.\n"
+        f"=== RETRIEVED MASTERCLASSES CONTEXT ===\n{context_str}\n================================="
+    )
+
+    if mesh_key and mesh_key.startswith("rsk_") and len(mesh_key) > 10:
         try:
-            system_prompt = (
-                "You are SmartReco AI Advisor powered by NVIDIA Llama 3.1 AI.\n"
-                "Provide helpful, concise, articulate, and accurate answers to the user.\n"
-                "If answering tech/career questions or code requests, use markdown formatting and code blocks.\n"
-                f"=== RETRIEVED MASTERCLASSES CONTEXT ===\n{context_str}\n================================="
-            )
+            mesh_url = app.config.get('MESH_BASE_URL', 'https://api.meshapi.ai/v1')
+            mesh_model = app.config.get('MESH_MODEL', 'openai/gpt-4o')
+            headers = {"Authorization": f"Bearer {mesh_key}", "Content-Type": "application/json"}
+            payload = {
+                "model": mesh_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_msg}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 350
+            }
+            resp = httpx.post(f"{mesh_url}/chat/completions", headers=headers, json=payload, timeout=5.0)
+            if resp.status_code == 200:
+                reply = resp.json()['choices'][0]['message']['content'].strip()
+                logger.info(f"Mesh API Response generated successfully for query '{user_msg}'")
+        except Exception as e:
+            logger.warning(f"Mesh API call timeout/error: {e}")
+
+    if not reply and nvidia_key:
+        try:
+            nvidia_url = app.config.get('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1')
             headers = {"Authorization": f"Bearer {nvidia_key}", "Content-Type": "application/json"}
             payload = {
                 "model": "meta/llama-3.1-8b-instruct",

@@ -13,10 +13,15 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # NVIDIA NIM LLM Configuration (Llama 3.1 70B & 8B Instruct)
+    # Mesh API Configuration (Mandatory Hackathon Gateway)
+    MESH_API_KEY = os.environ.get("MESH_API_KEY", "")
+    MESH_BASE_URL = os.environ.get("MESH_BASE_URL", "https://api.meshapi.ai/v1")
+    MESH_MODEL = os.environ.get("MESH_MODEL", "openai/gpt-4o")
+    
+    # NVIDIA NIM LLM Configuration (High-Performance Endpoint Option)
     NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "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")
     NVIDIA_BASE_URL = os.environ.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-    NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
+    NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "meta/llama-3.1-8b-instruct")
 
     # ChromaDB Vector Store directory
     CHROMA_PERSIST_DIR = str(BASE_DIR / "chroma_db")
