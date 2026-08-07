@@ -13,12 +13,7 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # Mesh API Configuration (OpenAI Compatible)
-    MESH_API_KEY = os.environ.get("MESH_API_KEY", "")
-    MESH_BASE_URL = os.environ.get("MESH_BASE_URL", "https://api.meshapi.ai/v1")
-    MESH_MODEL = os.environ.get("MESH_MODEL", "tencent/hy3")  # Free model option on Mesh API
-    
-    # NVIDIA NIM LLM Configuration (Llama 3.1 70B Instruct)
+    # NVIDIA NIM LLM Configuration (Llama 3.1 70B & 8B Instruct)
     NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "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")
     NVIDIA_BASE_URL = os.environ.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
     NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")

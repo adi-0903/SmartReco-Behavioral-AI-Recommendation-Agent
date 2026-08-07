@@ -26,17 +26,24 @@ class RecommendationState(TypedDict):
     trigger_reason: str
     trace_id: str
 
-def get_mesh_client():
-    """Returns an OpenAI client configured for Mesh API gateway."""
-    api_key = os.environ.get("MESH_API_KEY") or Config.MESH_API_KEY
-    base_url = os.environ.get("MESH_BASE_URL") or Config.MESH_BASE_URL
-    if not api_key:
-        api_key = "rsk_placeholder_key"
+def get_llm_client():
+    """Returns an OpenAI client configured for NVIDIA NIM API gateway."""
+    nvidia_key = os.environ.get("NVIDIA_API_KEY") or getattr(Config, "NVIDIA_API_KEY", None)
+    if nvidia_key:
+        base_url = os.environ.get("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"
+        return OpenAI(base_url=base_url, api_key=nvidia_key)
+        
+    api_key = os.environ.get("MESH_API_KEY") or getattr(Config, "MESH_API_KEY", "rsk_placeholder")
+    base_url = os.environ.get("MESH_BASE_URL") or "https://api.meshapi.ai/v1"
     return OpenAI(base_url=base_url, api_key=api_key)
 
 class AgenticRecommendationEngine:
     def __init__(self):
-        self.model_name = os.environ.get("MESH_MODEL") or Config.MESH_MODEL
+        nvidia_key = os.environ.get("NVIDIA_API_KEY") or getattr(Config, "NVIDIA_API_KEY", None)
+        if nvidia_key:
+            self.model_name = "meta/llama-3.1-8b-instruct"
+        else:
+            self.model_name = os.environ.get("MESH_MODEL", "meta/llama-3.1-8b-instruct")
 
     def analyze_behavior(self, events: List[Dict[str, Any]]) -> tuple[str, str, Dict[str, Any]]:
         """
@@ -254,7 +261,7 @@ Output strictly as a valid JSON object matching this structure:
   "recommended_course_ids": [id1, id2]
 }}"""
 
-        client = get_mesh_client()
+        client = get_llm_client()
         narrative = ""
         recommended_ids = [c['id'] for c in candidates[:3]]
 
@@ -270,7 +277,7 @@ Output strictly as a valid JSON object matching this structure:
                     response_format={"type": "json_object"}
                 )
             except Exception as ex1:
-                logger.info(f"Retrying Mesh API call without response_format flag: {ex1}")
+                logger.info(f"Retrying LLM call without response_format flag: {ex1}")
                 response = client.chat.completions.create(
                     model=self.model_name,
                     messages=[
