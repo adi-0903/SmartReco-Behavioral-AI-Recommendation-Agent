@@ -1,4 +1,5 @@
 import json
+import secrets
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,17 +14,34 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(20), default='user')  # 'user' or 'admin'
+    otp_code = db.Column(db.String(6), nullable=True)
+    is_verified = db.Column(db.Boolean, default=True)  # Admin & pre-seeded users verified by default
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     events = db.relationship('Event', backref='user', lazy=True, cascade="all, delete-orphan")
     recommendations = db.relationship('Recommendation', backref='user', lazy=True, cascade="all, delete-orphan")
     digests = db.relationship('DigestLog', backref='user', lazy=True, cascade="all, delete-orphan")
+    enrollments = db.relationship('Enrollment', backref='user', lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def generate_otp(self):
+        """Generates a secure 6-digit OTP code for email verification."""
+        self.otp_code = f"{secrets.randbelow(900000) + 100000}"
+        self.is_verified = False
+        return self.otp_code
+
+    def verify_otp(self, input_otp):
+        """Verifies the user-entered 6-digit OTP code."""
+        if self.otp_code and self.otp_code.strip() == str(input_otp).strip():
+            self.is_verified = True
+            self.otp_code = None
+            return True
+        return False
         
     def to_dict(self):
         return {
@@ -31,7 +49,27 @@ class User(db.Model):
             'email': self.email,
             'name': self.name,
             'role': self.role,
+            'is_verified': self.is_verified,
             'created_at': self.created_at.isoformat()
+        }
+
+class Enrollment(db.Model):
+    __tablename__ = 'enrollments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, index=True)
+    enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    product = db.relationship('Product', lazy='joined')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'product_id': self.product_id,
+            'product': self.product.to_dict() if self.product else None,
+            'enrolled_at': self.enrolled_at.isoformat()
         }
 
 class Product(db.Model):

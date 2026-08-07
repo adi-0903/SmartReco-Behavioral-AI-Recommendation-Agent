@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Verify Email OTP — SmartReco AI Portal{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 3rem auto; display: grid; grid-template-columns: 1.1fr 1.0fr; gap: 2.5rem; align-items: center;">
+    
+    <!-- Left Hero Brand Showcase -->
+    <div style="background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.25), transparent 60%),
+                radial-gradient(circle at bottom right, rgba(99, 102, 241, 0.2), transparent 60%),
+                rgba(18, 24, 38, 0.85); 
+                border: 1px solid var(--border-accent); 
+                border-radius: var(--radius-lg); 
+                padding: 3rem 2.5rem; 
+                box-shadow: var(--shadow-glow);
+                position: relative;
+                overflow: hidden;">
+        
+        <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.5rem;">
+            <span style="font-size: 2.5rem;">🔑</span>
+            <h2 style="font-size: 2.2rem; background: linear-gradient(135deg, #10b981, #38bdf8, #6366f1); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">
+                Email Verification
+            </h2>
+        </div>
+
+        <h3 style="font-size: 1.6rem; color: #ffffff; margin-bottom: 1.2rem; font-weight: 700; line-height: 1.3;">
+            Security Check: Verify Your Account Email
+        </h3>
+
+        <p style="color: var(--text-muted); font-size: 0.98rem; line-height: 1.7; margin-bottom: 2rem;">
+            We've generated a 6-digit one-time passcode (OTP) for your registered email address 
+            <strong style="color: var(--accent);">{{ unverified_email }}</strong>.
+        </p>
+
+        <!-- Zero-Cost Interactive OTP Banner -->
+        {% if demo_otp %}
+            <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; padding: 1.2rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+                <div style="font-size: 0.8rem; color: #10b981; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem;">
+                    📩 Your 6-Digit Email Verification OTP Code:
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span id="demoOtpDisplay" style="font-family: monospace; font-size: 2rem; font-weight: 800; color: #ffffff; letter-spacing: 6px;">
+                        {{ demo_otp }}
+                    </span>
+                    <button type="button" id="autoFillOtpBtn" class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; background: #10b981;">
+                        ⚡ Auto-Fill OTP
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+
+        <div style="display: flex; align-items: center; gap: 0.8rem; color: var(--text-dim); font-size: 0.85rem;">
+            <span>🛡️ Free &amp; Zero-Cost Email Verification Engine</span>
+        </div>
+
+    </div>
+
+    <!-- Right Glassmorphic OTP Verification Form -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: var(--radius-lg); padding: 3rem 2.4rem; box-shadow: var(--shadow-glow);">
+        
+        <div style="text-align: center; margin-bottom: 2.2rem;">
+            <h2 style="font-size: 1.9rem; color: #ffffff; margin-bottom: 0.4rem;">Enter 6-Digit OTP</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                Check your inbox and enter your passcode below
+            </p>
+        </div>
+
+        <form method="POST" action="/verify_otp" id="otpForm">
+            <div class="form-group">
+                <label class="form-label">6-Digit Passcode</label>
+                <input type="text" name="otp_code" id="otpInput" class="form-input" 
+                       placeholder="e.g. 849201" maxlength="6" pattern="[0-9]{6}" required 
+                       style="font-family: monospace; font-size: 1.5rem; letter-spacing: 6px; text-align: center; font-weight: 800;">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 0.95rem; margin-top: 1.4rem;">
+                ✓ Verify Email &amp; Activate Account →
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.8rem; padding-top: 1.2rem; border-top: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted);">
+            Didn't receive the code? 
+            <form method="POST" action="/resend_otp" style="display: inline;">
+                <button type="submit" style="background: none; border: none; color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline;">
+                    Resend New OTP Code
+                </button>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const autoFillBtn = document.getElementById('autoFillOtpBtn');
+    const demoOtpDisplay = document.getElementById('demoOtpDisplay');
+    const otpInput = document.getElementById('otpInput');
+
+    if (autoFillBtn && demoOtpDisplay && otpInput) {
+        autoFillBtn.addEventListener('click', function() {
+            otpInput.value = demoOtpDisplay.innerText.trim();
+            otpInput.focus();
+        });
+    }
+});
+</script>
+{% endblock %}

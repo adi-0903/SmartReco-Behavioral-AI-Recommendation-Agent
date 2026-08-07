@@ -23,7 +23,11 @@
                 {% else %}
                     <li><a href="/digests" class="nav-link {% if '/digests' in request.path %}active{% endif %}">My Email Digests</a></li>
                 {% endif %}
-                <li><span style="color: var(--accent); font-weight: 600; font-size: 0.9rem;">👤 {{ current_user.name }} ({{ current_user.role }})</span></li>
+                <li>
+                    <a href="/profile" class="nav-link {% if '/profile' in request.path %}active{% endif %}" style="display: flex; align-items: center; gap: 0.4rem;">
+                        👤 {{ current_user.name }} ({{ current_user.role }})
+                    </a>
+                </li>
                 <li><a href="/logout" class="btn btn-secondary" style="padding: 0.3rem 0.8rem;">Logout</a></li>
             {% else %}
                 <li><a href="/login" class="nav-link {% if '/login' in request.path %}active{% endif %}">Login</a></li>
@@ -49,7 +53,7 @@
     </div>
 
     <footer>
-        <p>SmartReco Behavioral AI Recommendation Agent • Built with Flask, Mesh API (GPT-4o), ChromaDB Vector Store & LangGraph</p>
+        <p>SmartReco Behavioral AI Recommendation Platform • Personalized Learning Intelligence</p>
     </footer>
 
     <!-- Non-blocking Event Tracking Script -->

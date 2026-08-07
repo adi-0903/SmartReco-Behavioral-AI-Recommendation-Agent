@@ -2,7 +2,7 @@ import sys
 import json
 import logging
 from app import app, db
-from models import User, Product, Event, Recommendation, DigestLog
+from models import User, Product, Event, Recommendation, DigestLog, Enrollment
 from vector_store import vector_store
 from agent.workflow import recommendation_engine
 from agent.observability import get_all_traces, AGENT_TRACES
@@ -58,16 +58,31 @@ def run_comprehensive_test_suite():
         res = client.post('/register', data={
             'name': 'Test Runner User',
             'email': test_email,
-            'password': 'password123'
+            'password': 'password123',
+            'confirm_password': 'password123'
         }, follow_redirects=True)
-        assert_test("New user registration successful", res.status_code == 200)
+        assert_test("New user registration redirected to OTP verification", res.status_code == 200)
         
         test_user = User.query.filter_by(email=test_email).first()
         assert_test("User persisted in SQLite database", test_user is not None)
         assert_test("Default user role is 'user' (Learner)", test_user.role == 'user')
 
+        # Verify OTP for test_user
+        res_otp = client.post('/verify_otp', data={'otp_code': test_user.otp_code}, follow_redirects=True)
+        assert_test("6-Digit OTP Email Verification successful", res_otp.status_code == 200 and test_user.is_verified)
+
         # Login as test user
         client.post('/login', data={'email': test_email, 'password': 'password123'})
+
+        # Test Profile GET
+        res_prof = client.get('/profile')
+        assert_test("User Profile page returns HTTP 200 OK", res_prof.status_code == 200)
+
+        # Test Course Enrollment
+        first_prod = Product.query.first()
+        res_enr = client.post(f'/enroll/{first_prod.id}', follow_redirects=True)
+        assert_test("Course Enrollment successful", res_enr.status_code == 200)
+        assert_test("Enrollment saved in SQLite database", Enrollment.query.filter_by(user_id=test_user.id, product_id=first_prod.id).first() is not None)
 
         # -------------------------------------------------------------
         # TEST 3: NON-BLOCKING BEHAVIORAL EVENT TRACKING API

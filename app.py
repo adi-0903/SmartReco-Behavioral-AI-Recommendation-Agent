@@ -5,12 +5,13 @@ from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 
 from config import Config
-from models import db, User, Product, Event, Recommendation, DigestLog
+from models import db, User, Product, Event, Recommendation, DigestLog, Enrollment
 from vector_store import vector_store
 from agent.workflow import recommendation_engine
 from agent.observability import get_all_traces, get_trace_by_id
 from scheduler import init_scheduler, generate_proactive_digests_job
 from seed_data import seed_database
+from email_service import send_otp_email
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -166,22 +167,149 @@ def register():
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
         role = 'user'  # All self-registered public accounts default to Learner User
 
-        if User.query.filter_by(email=email).first():
-            flash("An account with that email already exists.", "error")
+        if confirm_password and password != confirm_password:
+            flash("Passwords do not match. Please enter matching passwords.", "error")
             return redirect(url_for('register'))
 
-        user = User(email=email, name=name, role=role)
-        user.set_password(password)
-        db.session.add(user)
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            if existing_user.is_verified:
+                flash("An account with that email already exists.", "error")
+                return redirect(url_for('register'))
+            else:
+                user = existing_user
+                user.name = name
+                user.set_password(password)
+        else:
+            user = User(email=email, name=name, role=role)
+            user.set_password(password)
+            db.session.add(user)
+
+        otp_code = user.generate_otp()
         db.session.commit()
 
-        session['user_id'] = user.id
-        flash("Account created successfully! Welcome to SmartReco.", "success")
-        return redirect(url_for('index'))
+        # Send direct OTP email to recipient inbox
+        sent = send_otp_email(user.email, user.name, otp_code)
+
+        session['pending_user_id'] = user.id
+        if sent:
+            flash(f"📩 6-Digit Email Verification OTP sent directly to {user.email}!", "success")
+        else:
+            flash(f"📩 6-Digit Verification OTP code generated for {user.email}!", "success")
+            
+        return redirect(url_for('verify_otp'))
 
     return render_template('register.html', current_user=get_current_user())
+
+@app.route('/verify_otp', methods=['GET', 'POST'])
+def verify_otp():
+    pending_id = session.get('pending_user_id')
+    if not pending_id:
+        flash("No pending verification session. Please sign up or log in.", "error")
+        return redirect(url_for('register'))
+
+    user = db.session.get(User, pending_id)
+    if not user:
+        session.pop('pending_user_id', None)
+        return redirect(url_for('register'))
+
+    if request.method == 'POST':
+        otp_input = request.form.get('otp_code', '').strip()
+        if user.verify_otp(otp_input):
+            db.session.commit()
+            session['user_id'] = user.id
+            session.pop('pending_user_id', None)
+            flash(f"🎉 Email verified successfully! Welcome to SmartReco, {user.name}!", "success")
+            return redirect(url_for('index'))
+        else:
+            flash("❌ Invalid OTP code. Please enter the correct 6-digit passcode.", "error")
+
+    return render_template(
+        'verify_otp.html',
+        unverified_email=user.email,
+        demo_otp=user.otp_code,
+        current_user=get_current_user()
+    )
+
+@app.route('/resend_otp', methods=['POST'])
+def resend_otp():
+    pending_id = session.get('pending_user_id')
+    if not pending_id:
+        flash("No pending verification session found.", "error")
+        return redirect(url_for('register'))
+
+    user = db.session.get(User, pending_id)
+    if user:
+        new_otp = user.generate_otp()
+        db.session.commit()
+        sent = send_otp_email(user.email, user.name, new_otp)
+        if sent:
+            flash(f"🔄 New 6-Digit OTP code sent directly to {user.email}!", "success")
+        else:
+            flash(f"🔄 New 6-Digit OTP code generated for {user.email}!", "success")
+
+    return redirect(url_for('verify_otp'))
+
+@app.route('/profile')
+def profile():
+    user = get_current_user()
+    if not user:
+        flash("Please log in to view your profile.", "error")
+        return redirect(url_for('login'))
+
+    user_enrollments = Enrollment.query.filter_by(user_id=user.id).order_by(Enrollment.enrolled_at.desc()).all()
+    return render_template(
+        'profile.html',
+        current_user=user,
+        enrollments=user_enrollments
+    )
+
+@app.route('/enroll/<int:product_id>', methods=['POST'])
+def enroll_course(product_id):
+    user = get_current_user()
+    if not user:
+        flash("Please log in to enroll in masterclasses.", "error")
+        return redirect(url_for('login'))
+
+    product = Product.query.get_or_404(product_id)
+    existing_enr = Enrollment.query.filter_by(user_id=user.id, product_id=product.id).first()
+    
+    if not existing_enr:
+        enr = Enrollment(user_id=user.id, product_id=product.id)
+        db.session.add(enr)
+        db.session.commit()
+        flash(f"🎉 Successfully enrolled in '{product.title}'! Access it anytime in your profile.", "success")
+    else:
+        flash(f"You are already enrolled in '{product.title}'.", "info")
+
+    return redirect(url_for('profile'))
+
+@app.route('/change_password', methods=['POST'])
+def change_password():
+    user = get_current_user()
+    if not user:
+        flash("Please log in to change password.", "error")
+        return redirect(url_for('login'))
+
+    current_pwd = request.form.get('current_password', '')
+    new_pwd = request.form.get('new_password', '')
+    confirm_new_pwd = request.form.get('confirm_new_password', '')
+
+    if not user.check_password(current_pwd):
+        flash("Current password is incorrect.", "error")
+        return redirect(url_for('profile'))
+
+    if new_pwd != confirm_new_pwd:
+        flash("New password and confirmation password do not match.", "error")
+        return redirect(url_for('profile'))
+
+    user.set_password(new_pwd)
+    db.session.commit()
+    flash("🔒 Password updated successfully!", "success")
+    return redirect(url_for('profile'))
 
 @app.route('/logout')
 def logout():

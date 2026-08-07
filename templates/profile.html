@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block title %}My Profile — SmartReco AI Portal{% endblock %}
+
+{% block content %}
+<style>
+.role-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    text-transform: uppercase;
+}
+.role-badge.admin-role {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+.role-badge.user-role {
+    background: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.4);
+}
+.enrolled-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.2rem;
+    display: flex;
+    gap: 1.2rem;
+    align-items: center;
+    transition: border-color 0.2s;
+}
+.enrolled-card:hover {
+    border-color: var(--accent);
+}
+</style>
+
+<div style="max-width: 1050px; margin: 2rem auto;">
+    
+    <!-- User Profile Header Card -->
+    <div style="background: radial-gradient(circle at top left, rgba(99, 102, 241, 0.2), transparent 60%),
+                radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.15), transparent 60%),
+                var(--bg-card);
+                border: 1px solid var(--border-accent);
+                border-radius: var(--radius-lg);
+                padding: 2.2rem;
+                margin-bottom: 2rem;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                box-shadow: var(--shadow-glow);">
+        
+        <div style="display: flex; align-items: center; gap: 1.5rem;">
+            <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #38bdf8); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; color: #ffffff; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);">
+                {{ current_user.name[0]|upper if current_user and current_user.name else 'U' }}
+            </div>
+
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.3rem;">
+                    <h2 style="margin: 0; font-size: 1.8rem; color: #ffffff;">{{ current_user.name }}</h2>
+                    <span class="role-badge {% if current_user and current_user.role == 'admin' %}admin-role{% else %}user-role{% endif %}">
+                        {{ current_user.role }}
+                    </span>
+                    <span style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 20px; background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">
+                        ✓ Verified Account
+                    </span>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0;">
+                    📧 {{ current_user.email }} • Joined {{ current_user.created_at.strftime('%Y-%m-%d') if (current_user and current_user.created_at) else 'Recently' }}
+                </p>
+            </div>
+        </div>
+
+        <div style="text-align: right;">
+            <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent);">{{ enrollments|length }}</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Enrolled Masterclasses</div>
+        </div>
+    </div>
+
+    <!-- Grid Container: Enrolled Courses & Change Password -->
+    <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 2rem; align-items: start;">
+        
+        <!-- Left Section: Enrolled Masterclasses -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2rem;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="margin: 0; font-size: 1.3rem;">🎓 My Enrolled Masterclasses</h3>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">{{ enrollments|length }} Courses</span>
+            </div>
+
+            {% if enrollments %}
+                <div style="display: flex; flex-direction: column; gap: 1.2rem;">
+                    {% for enr in enrollments %}
+                        {% if enr.product %}
+                            <div class="enrolled-card">
+                                <img src="{{ enr.product.image_url }}" alt="{{ enr.product.title }}" style="width: 110px; height: 75px; object-fit: cover; border-radius: var(--radius-md);">
+                                
+                                <div style="flex: 1;">
+                                    <span style="font-size: 0.75rem; color: var(--accent); font-weight: 700; text-transform: uppercase;">
+                                        {{ enr.product.category }}
+                                    </span>
+                                    <h4 style="margin: 0.2rem 0 0.4rem 0; font-size: 1.05rem; line-height: 1.3;">
+                                        <a href="/product/{{ enr.product.id }}" style="color: #ffffff; text-decoration: none;">
+                                            {{ enr.product.title }}
+                                        </a>
+                                    </h4>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                        Enrolled: {{ enr.enrolled_at.strftime('%Y-%m-%d') if enr.enrolled_at else 'Active' }} • Rating: ★ {{ enr.product.rating }}
+                                    </div>
+                                </div>
+
+                                <a href="/product/{{ enr.product.id }}" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">
+                                    Access Course →
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 3rem 1.5rem; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-color); border-radius: var(--radius-md);">
+                    <span style="font-size: 3rem; display: block; margin-bottom: 0.8rem;">📚</span>
+                    <h4 style="font-size: 1.1rem; color: #ffffff; margin-bottom: 0.5rem;">No Enrolled Masterclasses Yet</h4>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+                        Explore our catalog of 31 rich masterclasses and enroll to start your learning path.
+                    </p>
+                    <a href="/" class="btn btn-primary" style="padding: 0.6rem 1.4rem; font-size: 0.9rem;">
+                        Browse Masterclasses Catalog →
+                    </a>
+                </div>
+            {% endif %}
+
+        </div>
+
+        <!-- Right Section: Change Password & Security -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2rem;">
+            
+            <h3 style="margin-bottom: 1.2rem; font-size: 1.3rem;">🔒 Security &amp; Password</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; line-height: 1.5;">
+                Update your account password securely.
+            </p>
+
+            <form method="POST" action="/change_password" id="changePasswordForm">
+                <div class="form-group">
+                    <label class="form-label" style="font-size: 0.85rem;">Current Password</label>
+                    <input type="password" name="current_password" class="form-input" placeholder="••••••••" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="font-size: 0.85rem;">New Password</label>
+                    <input type="password" name="new_password" id="newPwdInput" class="form-input" placeholder="••••••••" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="font-size: 0.85rem;">Confirm New Password</label>
+                    <input type="password" name="confirm_new_password" id="confirmPwdInput" class="form-input" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-size: 0.9rem; margin-top: 1rem;">
+                    Update Password →
+                </button>
+            </form>
+
+            <div style="margin-top: 1.8rem; padding-top: 1.2rem; border-top: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted);">
+                <strong>Account Details:</strong>
+                <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem;">
+                    <div>User ID: <code>#{{ current_user.id }}</code></div>
+                    <div>Account Status: <span style="color: #10b981;">Active</span></div>
+                    <div>Primary Role: <code>{{ current_user.role }}</code></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pwdForm = document.getElementById('changePasswordForm');
+    const newPwd = document.getElementById('newPwdInput');
+    const confirmPwd = document.getElementById('confirmPwdInput');
+
+    if (pwdForm) {
+        pwdForm.addEventListener('submit', function(e) {
+            if (newPwd.value !== confirmPwd.value) {
+                e.preventDefault();
+                alert("⚠️ New password and confirmation password do not match!");
+                confirmPwd.focus();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

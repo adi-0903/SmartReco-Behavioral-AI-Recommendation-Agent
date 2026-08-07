@@ -1,37 +1,109 @@
 {% extends 'base.html' %}
 
-{% block title %}Sign Up — SmartReco{% endblock %}
+{% block title %}Sign Up — SmartReco AI Portal{% endblock %}
 
 {% block content %}
-<div style="max-width: 440px; margin: 3rem auto; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem;">
-    <h2 style="text-align: center; margin-bottom: 0.5rem; font-size: 1.8rem;">Create Account</h2>
-    <p style="text-align: center; color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem;">
-        Join SmartReco for personalized agentic learning recommendations
-    </p>
-
-    <form method="POST" action="/register">
-        <div class="form-group">
-            <label class="form-label">Full Name</label>
-            <input type="text" name="name" class="form-input" placeholder="Sarah Learner" required>
+<div style="max-width: 1000px; margin: 3rem auto; display: grid; grid-template-columns: 1.1fr 1.0fr; gap: 2.5rem; align-items: center;">
+    
+    <!-- Left Hero Brand Showcase -->
+    <div style="background: radial-gradient(circle at top left, rgba(236, 72, 153, 0.25), transparent 60%),
+                radial-gradient(circle at bottom right, rgba(99, 102, 241, 0.2), transparent 60%),
+                rgba(18, 24, 38, 0.85); 
+                border: 1px solid var(--border-accent); 
+                border-radius: var(--radius-lg); 
+                padding: 3rem 2.5rem; 
+                box-shadow: var(--shadow-glow);
+                position: relative;
+                overflow: hidden;">
+        
+        <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.5rem;">
+            <span style="font-size: 2.5rem;">✨</span>
+            <h2 style="font-size: 2.2rem; background: linear-gradient(135deg, #ec4899, #6366f1, #38bdf8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">
+                Join SmartReco
+            </h2>
         </div>
 
-        <div class="form-group">
-            <label class="form-label">Email Address</label>
-            <input type="email" name="email" class="form-input" placeholder="sarah@example.com" required>
+        <h3 style="font-size: 1.6rem; color: #ffffff; margin-bottom: 1.2rem; font-weight: 700; line-height: 1.3;">
+            Start Your Personalized Learning Journey
+        </h3>
+
+        <p style="color: var(--text-muted); font-size: 0.98rem; line-height: 1.7; margin-bottom: 2rem;">
+            Create your account to unlock real-time behavioral recommendation tracking, custom masterclasses, and proactive daily learning digests.
+        </p>
+
+        <!-- Feature List -->
+        <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.8rem; color: #e2e8f0; font-size: 0.92rem;">
+                <span style="color: #10b981; font-weight: bold; font-size: 1.1rem;">✓</span> Student-Intent Driven Recommendations
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.8rem; color: #e2e8f0; font-size: 0.92rem;">
+                <span style="color: #10b981; font-weight: bold; font-size: 1.1rem;">✓</span> Instant Semantic Skill &amp; Course Search
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.8rem; color: #e2e8f0; font-size: 0.92rem;">
+                <span style="color: #10b981; font-weight: bold; font-size: 1.1rem;">✓</span> Proactive Daily Learning Summaries
+            </div>
         </div>
 
-        <div class="form-group">
-            <label class="form-label">Password</label>
-            <input type="password" name="password" class="form-input" placeholder="••••••••" required>
+    </div>
+
+    <!-- Right Glassmorphic Register Form -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: var(--radius-lg); padding: 3rem 2.4rem; box-shadow: var(--shadow-glow);">
+        
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <h2 style="font-size: 1.9rem; color: #ffffff; margin-bottom: 0.4rem;">Create Account</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                Register to explore top masterclasses
+            </p>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem; margin-top: 1rem;">
-            Create Account →
-        </button>
-    </form>
+        <form method="POST" action="/register" id="registerForm">
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="name" class="form-input" placeholder="Sarah Learner" required>
+            </div>
 
-    <p style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-muted);">
-        Already have an account? <a href="/login" style="color: var(--accent);">Sign in here</a>
-    </p>
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" name="email" class="form-input" placeholder="sarah@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" id="regPassword" class="form-input" placeholder="••••••••" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Confirm Password</label>
+                <input type="password" name="confirm_password" id="regConfirmPassword" class="form-input" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 0.95rem; margin-top: 1.2rem;">
+                Create Account →
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.8rem; padding-top: 1.2rem; border-top: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted);">
+            Already have an account? <a href="/login" style="color: var(--accent); font-weight: 600; text-decoration: none;">Sign In Here</a>
+        </div>
+    </div>
+
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registerForm');
+    const pwd = document.getElementById('regPassword');
+    const confirmPwd = document.getElementById('regConfirmPassword');
+
+    form.addEventListener('submit', function(e) {
+        if (pwd.value !== confirmPwd.value) {
+            e.preventDefault();
+            alert("⚠️ Passwords do not match! Please enter matching passwords.");
+            confirmPwd.focus();
+        }
+    });
+});
+</script>
 {% endblock %}

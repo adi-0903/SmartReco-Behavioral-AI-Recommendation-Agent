@@ -39,9 +39,11 @@
                 <span style="color: var(--warning); margin-left: 1rem; font-size: 1.1rem; font-weight: 700;">★ {{ product.rating }} / 5.0</span>
             </div>
             
-            <button id="enrollBtn" class="btn btn-primary" style="padding: 0.8rem 1.8rem; font-size: 1rem;">
-                Enroll Now ✨
-            </button>
+            <form method="POST" action="/enroll/{{ product.id }}" style="margin: 0;">
+                <button type="submit" id="enrollBtn" class="btn btn-primary" style="padding: 0.8rem 1.8rem; font-size: 1rem;">
+                    Enroll Now ✨
+                </button>
+            </form>
         </div>
     </div>
 </div>
