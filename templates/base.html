@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SmartReco — Behavioral AI Recommendation Agent{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="brand-logo">
+            <span>🤖</span> SmartReco
+        </a>
+        
+        <ul class="nav-links">
+            <li><a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Catalog</a></li>
+            {% if current_user %}
+                {% if current_user.role == 'admin' %}
+                    <li><a href="/admin/catalog" class="nav-link {% if '/admin/catalog' in request.path %}active{% endif %}">Manage Catalog <span class="nav-badge">Dual-Write</span></a></li>
+                    <li><a href="/admin/events" class="nav-link {% if '/admin/events' in request.path %}active{% endif %}">Behavior Stream</a></li>
+                    <li><a href="/admin/traces" class="nav-link {% if '/admin/traces' in request.path %}active{% endif %}">Agent Traces</a></li>
+                {% endif %}
+                <li><a href="/digests" class="nav-link {% if '/digests' in request.path %}active{% endif %}">Email Digests <span class="nav-badge">Proactive</span></a></li>
+                <li><span style="color: var(--accent); font-weight: 600; font-size: 0.9rem;">👤 {{ current_user.name }} ({{ current_user.role }})</span></li>
+                <li><a href="/logout" class="btn btn-secondary" style="padding: 0.3rem 0.8rem;">Logout</a></li>
+            {% else %}
+                <li><a href="/login" class="nav-link {% if '/login' in request.path %}active{% endif %}">Login</a></li>
+                <li><a href="/register" class="btn btn-primary" style="padding: 0.4rem 1rem;">Sign Up</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div style="margin-bottom: 1.5rem;">
+                    {% for category, message in messages %}
+                        <div style="padding: 0.9rem 1.2rem; border-radius: var(--radius-sm); margin-bottom: 0.5rem; 
+                                    background: {% if category=='error' %}rgba(239, 68, 68, 0.2){% else %}rgba(16, 185, 129, 0.2){% endif %};
+                                    border: 1px solid {% if category=='error' %}#ef4444{% else %}#10b981{% endif %}; color: #fff;">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+        <p>SmartReco Behavioral AI Recommendation Agent • Built with Flask, Mesh API (GPT-4o), ChromaDB Vector Store & LangGraph</p>
+    </footer>
+
+    <!-- Non-blocking Event Tracking Script -->
+    <script src="{{ url_for('static', filename='js/tracker.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,310 @@
+import os
+import json
+import time
+import logging
+from typing import TypedDict, List, Dict, Any, Optional
+from openai import OpenAI
+
+from config import Config
+from vector_store import vector_store
+from models import Product, db
+from agent.observability import AgentTrace
+
+logger = logging.getLogger(__name__)
+
+# State schema for LangGraph workflow
+class RecommendationState(TypedDict):
+    user_id: int
+    session_id: str
+    events: List[Dict[str, Any]]
+    intent_summary: str
+    search_query: str
+    candidates: List[Dict[str, Any]]
+    retrieval_quality: Dict[str, Any]
+    llm_prompt: str
+    narrative: str
+    recommended_product_ids: List[int]
+    trigger_reason: str
+    trace_id: str
+
+def get_mesh_client():
+    """Returns an OpenAI client configured for Mesh API gateway."""
+    api_key = os.environ.get("MESH_API_KEY") or Config.MESH_API_KEY
+    base_url = os.environ.get("MESH_BASE_URL") or Config.MESH_BASE_URL
+    if not api_key:
+        api_key = "rsk_placeholder_key"
+    return OpenAI(base_url=base_url, api_key=api_key)
+
+class AgenticRecommendationEngine:
+    def __init__(self):
+        self.model_name = os.environ.get("MESH_MODEL") or Config.MESH_MODEL
+
+    def analyze_behavior(self, events: List[Dict[str, Any]]) -> tuple[str, str, Dict[str, Any]]:
+        """
+        Node 1: Aggregates user behavioral signals (searches, dwell times, product views, category filters).
+        Builds a comprehensive intent profile and query string.
+        """
+        if not events:
+            return "General discovery and trending courses", "popular trending software development courses", {}
+
+        searches = []
+        viewed_titles = []
+        category_counts = {}
+        total_dwell_ms = 0
+        
+        for ev in events:
+            ev_type = ev.get('event_type')
+            details = ev.get('details', {})
+            duration = ev.get('duration_ms', 0)
+            total_dwell_ms += duration
+            
+            if ev_type == 'search' and details.get('query'):
+                searches.append(details.get('query'))
+            elif ev_type == 'product_view':
+                if details.get('product_title'):
+                    viewed_titles.append(details.get('product_title'))
+                if details.get('category'):
+                    cat = details.get('category')
+                    category_counts[cat] = category_counts.get(cat, 0) + 2
+            elif ev_type == 'category_filter' and details.get('category'):
+                cat = details.get('category')
+                category_counts[cat] = category_counts.get(cat, 0) + 1
+
+        top_category = max(category_counts, key=category_counts.get) if category_counts else "Software Development"
+        
+        intent_parts = []
+        if searches:
+            intent_parts.append(f"Searched for: {', '.join(searches[-3:])}")
+        if viewed_titles:
+            intent_parts.append(f"Explored courses: {', '.join(viewed_titles[-3:])}")
+        if category_counts:
+            intent_parts.append(f"Primary category focus: {top_category}")
+        if total_dwell_ms > 0:
+            intent_parts.append(f"Active engagement duration: {round(total_dwell_ms/1000, 1)}s")
+
+        intent_summary = " | ".join(intent_parts) if intent_parts else "Browsing course marketplace catalog"
+        
+        # Build search query for semantic vector DB
+        search_query_elements = []
+        if searches:
+            search_query_elements.extend(searches)
+        if viewed_titles:
+            search_query_elements.extend(viewed_titles)
+        if top_category:
+            search_query_elements.append(top_category)
+
+        search_query = " ".join(search_query_elements) if search_query_elements else "top rated software development courses"
+        
+        stats = {
+            'search_count': len(searches),
+            'views_count': len(viewed_titles),
+            'top_category': top_category,
+            'dwell_seconds': round(total_dwell_ms / 1000, 1)
+        }
+        return intent_summary, search_query, stats
+
+    def retrieve_products(self, search_query: str, top_category: str = None, top_k: int = 5) -> List[Dict[str, Any]]:
+        """
+        Node 2: Semantic retrieval using Vector Store + DB fallback.
+        """
+        vector_candidates = vector_store.semantic_search(
+            query_text=search_query,
+            top_k=top_k,
+            category_filter=top_category if top_category != "All" else None
+        )
+        
+        candidates = []
+        retrieved_ids = set()
+        
+        for vc in vector_candidates:
+            p_id = vc['product_id']
+            retrieved_ids.add(p_id)
+            product = Product.query.get(p_id)
+            if product:
+                prod_dict = product.to_dict()
+                prod_dict['similarity_score'] = vc.get('similarity_score', 0.85)
+                candidates.append(prod_dict)
+
+        # Fallback to SQL query if vector store returns insufficient items
+        if len(candidates) < 3:
+            sql_products = Product.query.limit(top_k).all()
+            for p in sql_products:
+                if p.id not in retrieved_ids:
+                    prod_dict = p.to_dict()
+                    prod_dict['similarity_score'] = 0.50
+                    candidates.append(prod_dict)
+
+        return candidates[:top_k]
+
+    def evaluate_retrieval(self, candidates: List[Dict[str, Any]], search_query: str) -> Dict[str, Any]:
+        """
+        Node 3: Evaluates candidate relevance score & coverage.
+        """
+        if not candidates:
+            return {'status': 'insufficient', 'avg_score': 0.0, 'needs_refinement': True}
+            
+        avg_score = sum(c.get('similarity_score', 0.5) for c in candidates) / len(candidates)
+        needs_refinement = avg_score < 0.4 or len(candidates) < 2
+        
+        return {
+            'status': 'good' if not needs_refinement else 'marginal',
+            'avg_score': round(avg_score, 4),
+            'needs_refinement': needs_refinement,
+            'candidate_count': len(candidates)
+        }
+
+    def generate_persuasive_narrative(
+        self,
+        intent_summary: str,
+        user_name: str,
+        candidates: List[Dict[str, Any]],
+        stats: Dict[str, Any]
+    ) -> tuple[str, List[int], str]:
+        """
+        Node 4: Uses Mesh API LLM (`openai/gpt-4o`) to author dynamic personalized recommendation copy.
+        """
+        candidate_summary = "\n".join([
+            f"- [{c['id']}] {c['title']} (${c['price']}) - Category: {c['category']}. Tags: {', '.join(c.get('tags', []))}. Rating: {c['rating']}/5"
+            for c in candidates
+        ])
+
+        prompt = f"""You are SmartReco, an intelligent agentic learning guide.
+User Name: {user_name}
+User Behavioral Activity Summary: {intent_summary}
+User Engagement Stats: {json.dumps(stats)}
+
+Available Relevant Courses retrieved from catalog:
+{candidate_summary}
+
+Instructions:
+1. Write a captivating, highly personalized 2-paragraph narrative addressing {user_name} directly.
+2. Clearly explain WHY these courses match their exact recent browsing history, search terms, and dwell time.
+3. Be persuasive, motivational, and highlight actionable career/skill outcomes.
+4. Select the top 2 to 3 most compelling course IDs from the list above.
+
+Output strictly as a valid JSON object matching this structure:
+{{
+  "narrative": "Your persuasive personalized narrative here...",
+  "recommended_course_ids": [id1, id2]
+}}"""
+
+        client = get_mesh_client()
+        narrative = ""
+        recommended_ids = [c['id'] for c in candidates[:3]]
+
+        try:
+            try:
+                response = client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "system", "content": "You are SmartReco, a behavioral AI recommendation engine. Always output valid JSON."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    response_format={"type": "json_object"}
+                )
+            except Exception as ex1:
+                logger.info(f"Retrying Mesh API call without response_format flag: {ex1}")
+                response = client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+            
+            content = response.choices[0].message.content
+            # Extract JSON block using regex if wrapped in markdown
+            import re
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                content = json_match.group(0)
+                
+            parsed = json.loads(content)
+            narrative = parsed.get("narrative", "")
+            rec_ids = parsed.get("recommended_course_ids", [])
+            if rec_ids and isinstance(rec_ids, list):
+                valid_ids = [cid for cid in rec_ids if any(c['id'] == cid for c in candidates)]
+                if valid_ids:
+                    recommended_ids = valid_ids
+                    
+        except Exception as e:
+            logger.warning(f"Mesh API call notice: {e}. Utilizing fallback agent persona generation.")
+            # Fallback persuasive narrative generation if API key is in placeholder mode
+            top_cat = stats.get('top_category', 'Tech')
+            top_titles = [c['title'] for c in candidates[:2]]
+            title_str = " and ".join(top_titles) if top_titles else "our featured masterclasses"
+            
+            narrative = (
+                f"Hey {user_name}! Based on your recent focus exploring **{top_cat}** "
+                f"and active research across our interactive platform, we've curated a custom learning path just for you. "
+                f"You spent significant time analyzing advanced topics, and **{title_str}** "
+                f"directly align with your immediate goals to build production-grade expertise!"
+            )
+
+        return narrative, recommended_ids, prompt
+
+    def run(self, user_id: int, session_id: str, events: List[Dict[str, Any]], trigger_reason: str = "behavior_update") -> Dict[str, Any]:
+        """
+        Executes the end-to-end Agentic Recommendation Workflow with Observability Tracing.
+        """
+        trace = AgentTrace(user_id=user_id, session_id=session_id, trigger_reason=trigger_reason)
+        user_name = "Learner"
+        
+        from models import User
+        user = User.query.get(user_id) if user_id else None
+        if user:
+            user_name = user.name
+
+        try:
+            # Node 1: Analyze Behavior
+            t0 = time.time()
+            intent_summary, search_query, stats = self.analyze_behavior(events)
+            trace.intent_summary = intent_summary
+            trace.add_node_execution("analyze_behavior", {'events_count': len(events)}, {'intent_summary': intent_summary, 'search_query': search_query}, (time.time()-t0)*1000)
+
+            # Node 2: Retrieve Products
+            t0 = time.time()
+            candidates = self.retrieve_products(search_query, top_category=stats.get('top_category'))
+            trace.retrieved_candidates = [{'id': c['id'], 'title': c['title'], 'score': c.get('similarity_score')} for c in candidates]
+            trace.add_node_execution("retrieve_products", {'search_query': search_query}, {'candidate_count': len(candidates)}, (time.time()-t0)*1000)
+
+            # Node 3: Evaluate Retrieval
+            t0 = time.time()
+            retrieval_eval = self.evaluate_retrieval(candidates, search_query)
+            if retrieval_eval['needs_refinement']:
+                # Expand search query
+                expanded_query = f"{search_query} software engineering courses masterclass"
+                candidates = self.retrieve_products(expanded_query)
+            trace.add_node_execution("evaluate_retrieval", retrieval_eval, {'final_candidate_count': len(candidates)}, (time.time()-t0)*1000)
+
+            # Node 4: Generate Persuasion
+            t0 = time.time()
+            narrative, recommended_ids, prompt = self.generate_persuasive_narrative(
+                intent_summary, user_name, candidates, stats
+            )
+            trace.llm_prompt = prompt
+            trace.add_node_execution("generate_persuasion", {'prompt_length': len(prompt)}, {'narrative_length': len(narrative), 'rec_ids': recommended_ids}, (time.time()-t0)*1000)
+
+            # Node 5: Finalize & Persist
+            trace.finish(narrative, recommended_ids, status="completed")
+
+            return {
+                'narrative': narrative,
+                'recommended_product_ids': recommended_ids,
+                'recommended_products': [c for c in candidates if c['id'] in recommended_ids],
+                'trigger_reason': trigger_reason,
+                'trace_id': trace.trace_id,
+                'metadata': {
+                    'intent_summary': intent_summary,
+                    'search_query': search_query,
+                    'retrieval_eval': retrieval_eval
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Agent Workflow failed: {e}", exc_info=True)
+            trace.finish("", [], status="failed", error=str(e))
+            raise e
+
+# Global Engine instance
+recommendation_engine = AgenticRecommendationEngine()

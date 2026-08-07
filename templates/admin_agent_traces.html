@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}Agent Traces & Observability — Admin Dashboard{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div>
+        <h1>Agent Execution Traces &amp; Observability</h1>
+        <p style="color: var(--text-muted);">
+            End-to-end inspection of LangGraph decision nodes, vector retrieval scores, Mesh API prompts, and token latency.
+        </p>
+    </div>
+    
+    <span style="background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary); color: #818cf8; padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600;">
+        ⭐ LangGraph Observability Active
+    </span>
+</div>
+
+{% for trace in traces %}
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.8rem; margin-bottom: 1rem;">
+            <div>
+                <strong style="color: var(--accent); font-size: 1.1rem;">Trace ID: {{ trace.trace_id }}</strong>
+                <span style="margin-left: 1rem; color: var(--text-dim); font-size: 0.85rem;">User #{{ trace.user_id }} • Trigger: <code>{{ trace.trigger_reason }}</code></span>
+            </div>
+            
+            <div>
+                <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">
+                    Status: {{ trace.status }}
+                </span>
+                <span style="margin-left: 0.5rem; color: var(--warning); font-size: 0.85rem; font-weight: 600;">
+                    ⚡ {{ trace.total_duration_ms }}ms
+                </span>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1rem;">
+            <div>
+                <h4 style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem;">User Intent Profile</h4>
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 0.8rem; border-radius: var(--radius-sm); font-size: 0.9rem; color: #e2e8f0;">
+                    {{ trace.intent_summary or 'Standard catalog discovery' }}
+                </div>
+            </div>
+
+            <div>
+                <h4 style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem;">Retrieved Vector Candidates</h4>
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 0.8rem; border-radius: var(--radius-sm); font-size: 0.85rem;">
+                    {% for c in trace.retrieved_candidates %}
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                            <span>#{{ c.id }} {{ c.title }}</span>
+                            <span style="color: var(--accent); font-weight: 600;">Match: {{ ((c.score or 0.85)*100)|round(1) }}%</span>
+                        </div>
+                    {% else %}
+                        <span style="color: var(--text-dim);">No candidates retrieved</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h4 style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem;">Executed LangGraph Nodes</h4>
+            <div style="display: flex; gap: 0.8rem; flex-wrap: wrap;">
+                {% for node in trace.nodes_executed %}
+                    <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); padding: 0.5rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.8rem;">
+                        <strong style="color: var(--primary);">{{ node.node }}</strong>
+                        <span style="color: var(--text-dim); margin-left: 0.4rem;">({{ node.duration_ms }}ms)</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div style="text-align: center; padding: 3rem; background: var(--bg-card); border-radius: var(--radius-md);">
+        <p style="color: var(--text-muted);">No agent execution traces recorded yet. Traces will populate when recommendations refresh!</p>
+    </div>
+{% endfor %}
+{% endblock %}

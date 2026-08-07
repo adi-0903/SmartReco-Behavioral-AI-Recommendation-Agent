@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Login — SmartReco{% endblock %}
+
+{% block content %}
+<div style="max-width: 440px; margin: 3rem auto; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem;">
+    <h2 style="text-align: center; margin-bottom: 0.5rem; font-size: 1.8rem;">Welcome Back</h2>
+    <p style="text-align: center; color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem;">
+        Log in to resume your personalized learning journey
+    </p>
+
+    <form method="POST" action="/login">
+        <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" name="email" class="form-input" placeholder="user@smartreco.com" required value="user@smartreco.com">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-input" placeholder="••••••••" required value="user123">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem; margin-top: 1rem;">
+            Sign In →
+        </button>
+    </form>
+
+    <div style="margin-top: 1.5rem; padding-top: 1.2rem; border-top: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted);">
+        <p><strong>Demo Test Accounts:</strong></p>
+        <ul style="margin-left: 1.2rem; margin-top: 0.4rem;">
+            <li>Regular User: <code>user@smartreco.com</code> / <code>user123</code></li>
+            <li>Admin User: <code>admin@smartreco.com</code> / <code>admin</code></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

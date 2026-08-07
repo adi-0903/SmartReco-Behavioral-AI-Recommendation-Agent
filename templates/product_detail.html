@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ product.title }} — SmartReco Catalog{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem;">
+    <a href="/" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">← Back to Catalog</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 3rem;">
+    <div>
+        <img src="{{ product.image_url }}" alt="{{ product.title }}" style="width: 100%; border-radius: var(--radius-md); max-height: 380px; object-fit: cover;">
+    </div>
+
+    <div style="display: flex; flex-direction: column; justify-content: center;">
+        <span style="color: var(--accent); font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">
+            {{ product.category }}
+        </span>
+        
+        <h1 style="font-size: 2.2rem; margin: 0.5rem 0 1rem 0; line-height: 1.2;">{{ product.title }}</h1>
+        
+        <p style="color: var(--text-muted); font-size: 1.05rem; margin-bottom: 1.5rem; line-height: 1.7;">
+            {{ product.description }}
+        </p>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.8rem;">
+            {% for tag in product.tags %}
+                <span class="tag-pill" style="font-size: 0.8rem; padding: 0.3rem 0.7rem;">{{ tag }}</span>
+            {% endfor %}
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+            <div>
+                <span style="font-size: 2rem; font-weight: 800; color: var(--success);">${{ product.price }}</span>
+                <span style="color: var(--warning); margin-left: 1rem; font-size: 1.1rem; font-weight: 700;">★ {{ product.rating }} / 5.0</span>
+            </div>
+            
+            <button id="enrollBtn" class="btn btn-primary" style="padding: 0.8rem 1.8rem; font-size: 1rem;">
+                Enroll Now ✨
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Vector DB Semantic Matches -->
+{% if similar_products %}
+<div style="margin-top: 2rem;">
+    <h3 style="margin-bottom: 1.2rem; font-size: 1.3rem;">Semantically Related Courses (Vector DB Search)</h3>
+    <div class="product-grid">
+        {% for sim in similar_products %}
+            <div class="product-card">
+                <div class="card-img-wrapper">
+                    <img src="{{ sim.image_url }}" alt="{{ sim.title }}" class="card-img">
+                    <span class="card-badge">Similarity: {{ (sim.similarity_score * 100)|round(1) }}%</span>
+                </div>
+                <div class="card-body">
+                    <h4 class="card-title">{{ sim.title }}</h4>
+                    <p class="card-desc">{{ sim.description }}</p>
+                    <div class="card-footer">
+                        <span class="price-tag">${{ sim.price }}</span>
+                        <a href="/product/{{ sim.id }}" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                            View Course
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Explicitly track product view on load
+    SmartRecoTracker.trackProductView({{ product.id }}, "{{ product.title|escape }}", "{{ product.category|escape }}");
+
+    document.getElementById('enrollBtn').addEventListener('click', function() {
+        SmartRecoTracker.pushEvent('enroll_click', {{ product.id }}, { title: "{{ product.title|escape }}" });
+        alert("🎉 Thank you for enrolling in '{{ product.title|escape }}'! This action signal has been recorded by SmartReco agent.");
+    });
+});
+</script>
+{% endblock %}
