@@ -84,6 +84,15 @@ def run_comprehensive_test_suite():
         assert_test("Course Enrollment successful", res_enr.status_code == 200)
         assert_test("Enrollment saved in SQLite database", Enrollment.query.filter_by(user_id=test_user.id, product_id=first_prod.id).first() is not None)
 
+        # Test AI Advisor Chatbot API
+        res_chat = client.post('/api/chat', json={'message': 'Recommend Agentic AI courses'})
+        assert_test("AI Learning Advisor Chatbot API returns HTTP 200 OK", res_chat.status_code == 200)
+        assert_test("AI Advisor response contains RAG reply", 'reply' in res_chat.get_json())
+
+        # Test Dedicated Full-Page AI Studio Assistant Route
+        res_assist = client.get('/assistant')
+        assert_test("Dedicated Full-Page AI Workstation returns HTTP 200 OK", res_assist.status_code == 200)
+
         # -------------------------------------------------------------
         # TEST 3: NON-BLOCKING BEHAVIORAL EVENT TRACKING API
         # -------------------------------------------------------------

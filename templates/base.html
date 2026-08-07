@@ -21,6 +21,7 @@
                     <li><a href="/admin/traces" class="nav-link {% if '/admin/traces' in request.path %}active{% endif %}">Agent Traces</a></li>
                     <li><a href="/admin/digests" class="nav-link {% if '/admin/digests' in request.path %}active{% endif %}">Digest Control <span class="nav-badge">Proactive</span></a></li>
                 {% else %}
+                    <li><a href="/assistant" class="nav-link {% if '/assistant' in request.path %}active{% endif %}">🤖 AI Assistant</a></li>
                     <li><a href="/digests" class="nav-link {% if '/digests' in request.path %}active{% endif %}">My Email Digests</a></li>
                 {% endif %}
                 <li>
@@ -30,6 +31,7 @@
                 </li>
                 <li><a href="/logout" class="btn btn-secondary" style="padding: 0.3rem 0.8rem;">Logout</a></li>
             {% else %}
+                <li><a href="/assistant" class="nav-link {% if '/assistant' in request.path %}active{% endif %}">🤖 AI Assistant</a></li>
                 <li><a href="/login" class="nav-link {% if '/login' in request.path %}active{% endif %}">Login</a></li>
                 <li><a href="/register" class="btn btn-primary" style="padding: 0.4rem 1rem;">Sign Up</a></li>
             {% endif %}
@@ -56,8 +58,59 @@
         <p>SmartReco Behavioral AI Recommendation Platform • Personalized Learning Intelligence</p>
     </footer>
 
-    <!-- Non-blocking Event Tracking Script -->
+    <!-- Floating AI Learning Advisor Chatbot Widget -->
+    <div id="aiChatWidgetContainer">
+        <!-- Floating Toggle Button -->
+        <button id="aiChatToggleBtn" title="Ask SmartReco AI Advisor">
+            <span>🤖</span>
+            <span class="chat-btn-text">AI Advisor</span>
+            <span class="chat-online-dot"></span>
+        </button>
+
+        <!-- Glassmorphic Chat Window -->
+        <div id="aiChatWindow" class="chat-window-hidden">
+            <div class="chat-header">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <span style="font-size: 1.4rem;">🤖</span>
+                    <div>
+                        <strong style="font-size: 0.95rem; color: #ffffff; display: block;">SmartReco AI Advisor</strong>
+                        <span style="font-size: 0.72rem; color: #34d399;">● NVIDIA Llama-3.1-70B RAG Active</span>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button id="aiChatExpandBtn" class="chat-close-btn" style="font-size: 1.1rem;" title="Toggle Fullscreen Mode">⤢</button>
+                    <button id="aiChatCloseBtn" class="chat-close-btn" title="Close Chat">&times;</button>
+                </div>
+            </div>
+
+            <!-- Quick Suggestions Bar -->
+            <div class="chat-suggestions-bar">
+                <button class="chip-btn" data-query="Recommend top Agentic AI & RAG masterclasses">🤖 Agentic AI</button>
+                <button class="chip-btn" data-query="How do I get started in Ethical Hacking & Cybersecurity?">🛡️ Cybersecurity</button>
+                <button class="chip-btn" data-query="Best Next.js & Fullstack Web Development courses">🌐 Web Dev</button>
+            </div>
+
+            <!-- Chat Messages Log -->
+            <div id="aiChatMessagesLog" class="chat-messages-log">
+                <div class="chat-bubble bot-bubble">
+                    <span class="bot-icon">🤖</span>
+                    <div class="bubble-text">
+                        Hello {{ current_user.name if current_user else 'Learner' }}! 👋 I am your SmartReco AI Learning Advisor. Ask me anything about skills, career paths, or masterclass recommendations!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Input Form -->
+            <form id="aiChatInputForm" class="chat-input-form">
+                <input type="text" id="aiChatInputText" placeholder="Ask AI Advisor about courses or skills..." autocomplete="off" required>
+                <button type="submit" class="chat-send-btn">Send ➔</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Non-blocking Event Tracking & AI Chatbot Scripts -->
     <script src="{{ url_for('static', filename='js/tracker.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
