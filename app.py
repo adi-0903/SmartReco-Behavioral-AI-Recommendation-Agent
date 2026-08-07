@@ -52,6 +52,9 @@ def setup_app_context():
 @app.route('/')
 def index():
     current_user = get_current_user()
+    if current_user and current_user.role == 'admin':
+        return redirect(url_for('admin_students'))
+
     search_query = request.args.get('q', '').strip()
     selected_category = request.args.get('cat', 'All').strip()
 
@@ -529,6 +532,54 @@ def refresh_recommendations():
     except Exception as e:
         logger.error(f"Recommendation refresh error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# --- ADMIN STUDENT MONITORING & CONTROL PANEL ---
+
+@app.route('/admin')
+@app.route('/admin/students')
+def admin_students():
+    """Admin Dashboard: Monitors all students joining the platform, OTP verification, enrollments & behavioral activity."""
+    if not is_admin():
+        flash("Admin permissions required to access student portal.", "error")
+        return redirect(url_for('login'))
+
+    # Fetch all registered student users (excluding admin)
+    students = User.query.filter(User.role != 'admin').order_by(User.created_at.desc()).all()
+    
+    student_list = []
+    for s in students:
+        enrolled_courses = [e.product for e in s.enrollments if e.product]
+        event_count = Event.query.filter_by(user_id=s.id).count()
+        student_list.append({
+            'user': s,
+            'enrolled_courses': enrolled_courses,
+            'enrolled_count': len(enrolled_courses),
+            'event_count': event_count
+        })
+
+    return render_template(
+        'admin_students.html',
+        students=student_list,
+        total_students=len(student_list),
+        current_user=get_current_user()
+    )
+
+@app.route('/admin/student/delete/<int:user_id>', methods=['POST'])
+def admin_delete_student(user_id):
+    """Admin Action: Delete a student account."""
+    if not is_admin():
+        flash("Admin permissions required.", "error")
+        return redirect(url_for('login'))
+
+    student = User.query.get_or_404(user_id)
+    if student.role == 'admin':
+        flash("Cannot delete admin account.", "error")
+        return redirect(url_for('admin_students'))
+
+    db.session.delete(student)
+    db.session.commit()
+    flash(f"Student account '{student.email}' removed successfully.", "success")
+    return redirect(url_for('admin_students'))
 
 # --- ADMIN CATALOG MANAGEMENT (DUAL-WRITE) ---
 

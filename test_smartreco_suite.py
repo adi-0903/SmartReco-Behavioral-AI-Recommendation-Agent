@@ -50,6 +50,10 @@ def run_comprehensive_test_suite():
         res = client.post('/login', data={'email': 'admin@smartreco.com', 'password': 'admin'}, follow_redirects=True)
         assert_test("Admin user login successful", res.status_code == 200)
         
+        # Test Admin Joined Students Portal
+        res_admin_stu = client.get('/admin/students')
+        assert_test("Admin Joined Students Portal returns HTTP 200 OK", res_admin_stu.status_code == 200)
+        
         # Register new test user
         test_email = "testsuite_user@smartreco.com"
         User.query.filter_by(email=test_email).delete()
@@ -268,6 +272,12 @@ def run_comprehensive_test_suite():
 
         res = client.post('/admin/traces/clear', follow_redirects=True)
         assert_test("Admin clear traces command returns HTTP 200", res.status_code == 200)
+
+        # Cleanup test suite users to keep production DB 100% clean
+        test_users = User.query.filter(User.role != 'admin').all()
+        for u in test_users:
+            db.session.delete(u)
+        db.session.commit()
 
     print("\n=======================================================")
     print(f"SMARTRECO SUITE RESULT: {passed_tests}/{total_tests} TESTS PASSED PERFECTLY!")

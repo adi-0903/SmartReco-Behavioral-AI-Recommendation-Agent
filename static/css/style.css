@@ -47,59 +47,73 @@ h1, h2, h3, h4, h5, .brand-logo {
 
 /* Glassmorphism Navbar */
 .navbar {
-    background: rgba(11, 15, 25, 0.85);
+    background: rgba(11, 15, 25, 0.92);
     backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
     z-index: 100;
-    padding: 0.8rem 2rem;
+    padding: 0.75rem 1.8rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
+    white-space: nowrap;
 }
 
 .brand-logo {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
     font-weight: 800;
     background: linear-gradient(135deg, #6366f1, #38bdf8, #ec4899);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     text-decoration: none;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    white-space: nowrap;
 }
 
 .nav-links {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 0.8rem;
     list-style: none;
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
 }
 
 .nav-link {
     color: var(--text-muted);
     text-decoration: none;
     font-weight: 500;
+    font-size: 0.88rem;
     transition: all 0.2s ease;
-    padding: 0.4rem 0.8rem;
+    padding: 0.4rem 0.7rem;
     border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
 }
 
 .nav-link:hover, .nav-link.active {
     color: var(--text-main);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .nav-badge {
     background: linear-gradient(135deg, var(--primary), var(--secondary));
     color: #fff;
-    padding: 0.2rem 0.6rem;
-    border-radius: 20px;
-    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
     font-weight: 700;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 /* Layout Containers */
