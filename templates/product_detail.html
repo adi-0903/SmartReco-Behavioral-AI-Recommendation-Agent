@@ -7,7 +7,11 @@
     <a href="/" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">← Back to Catalog</a>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 3rem;">
+<div id="productDetailContainer"
+     data-product-id="{{ product.id }}"
+     data-product-title="{{ product.title|e }}"
+     data-product-category="{{ product.category|e }}"
+     style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 3rem;">
     <div>
         <img src="{{ product.image_url }}" alt="{{ product.title }}" style="width: 100%; border-radius: var(--radius-md); max-height: 380px; object-fit: cover;">
     </div>
@@ -49,19 +53,17 @@
     <div class="product-grid">
         {% for sim in similar_products %}
             <div class="product-card">
-                <div class="card-img-wrapper">
-                    <img src="{{ sim.image_url }}" alt="{{ sim.title }}" class="card-img">
-                    <span class="card-badge">Similarity: {{ (sim.similarity_score * 100)|round(1) }}%</span>
+                <div class="card-top-header">
+                    <span class="card-badge">{{ sim.category }}</span>
+                    <span class="rating-tag">★ {{ sim.rating }}</span>
                 </div>
-                <div class="card-body">
-                    <h4 class="card-title">{{ sim.title }}</h4>
-                    <p class="card-desc">{{ sim.description }}</p>
-                    <div class="card-footer">
-                        <span class="price-tag">${{ sim.price }}</span>
-                        <a href="/product/{{ sim.id }}" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
-                            View Course
-                        </a>
-                    </div>
+                <h4 class="card-title">{{ sim.title }}</h4>
+                <p class="card-desc">{{ sim.description }}</p>
+                <div class="card-footer">
+                    <span class="price-tag">${{ sim.price }}</span>
+                    <a href="/product/{{ sim.id }}" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                        View Course →
+                    </a>
                 </div>
             </div>
         {% endfor %}
@@ -74,13 +76,27 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Explicitly track product view on load
-    SmartRecoTracker.trackProductView({{ product.id }}, "{{ product.title|escape }}", "{{ product.category|escape }}");
+    const container = document.getElementById('productDetailContainer');
+    if (!container) return;
 
-    document.getElementById('enrollBtn').addEventListener('click', function() {
-        SmartRecoTracker.pushEvent('enroll_click', {{ product.id }}, { title: "{{ product.title|escape }}" });
-        alert("🎉 Thank you for enrolling in '{{ product.title|escape }}'! This action signal has been recorded by SmartReco agent.");
-    });
+    const prodId = parseInt(container.dataset.productId, 10);
+    const prodTitle = container.dataset.productTitle || '';
+    const prodCategory = container.dataset.productCategory || '';
+
+    // Explicitly track product view on load
+    if (window.SmartRecoTracker) {
+        SmartRecoTracker.trackProductView(prodId, prodTitle, prodCategory);
+    }
+
+    const enrollBtn = document.getElementById('enrollBtn');
+    if (enrollBtn) {
+        enrollBtn.addEventListener('click', function() {
+            if (window.SmartRecoTracker) {
+                SmartRecoTracker.pushEvent('enroll_click', prodId, { title: prodTitle });
+            }
+            alert("🎉 Thank you for enrolling in '" + prodTitle + "'! This action signal has been recorded by SmartReco agent.");
+        });
+    }
 });
 </script>
 {% endblock %}

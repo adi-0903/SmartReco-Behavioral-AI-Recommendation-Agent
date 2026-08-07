@@ -6,7 +6,7 @@
 <div class="hero-banner">
     <h1 class="hero-title">Adaptive Behavioral AI Marketplace</h1>
     <p class="hero-subtitle">
-        Explore advanced courses in AI, Fullstack, Cloud & DevOps. As you browse, search, and engage, 
+        Explore advanced courses in AI, Fullstack, Cloud &amp; DevOps. As you browse, search, and engage, 
         our agentic recommendation backend retrieves tailored products and crafts persuasive personalized guidance for your journey.
     </p>
 </div>
@@ -18,7 +18,7 @@
             <span class="pulse-icon"></span>
             <strong>SmartReco AI Advisor</strong>
             <span style="font-size: 0.8rem; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 0.2rem 0.5rem; border-radius: 12px;">
-                Powered by Mesh API & RAG
+                Powered by Mesh API &amp; RAG
             </span>
         </div>
         <button id="refreshRecoBtn" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.3rem 0.8rem;">
@@ -36,17 +36,21 @@
 
     {% if recommended_products %}
         <div style="margin-top: 1rem;">
-            <h4 style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 0.8rem;">RECOMENDED FOR YOUR JOURNEY:</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem;">
+            <h4 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">RECOMMENDED FOR YOUR JOURNEY:</h4>
+            <div class="product-grid">
                 {% for prod in recommended_products %}
-                    <div style="background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border-accent); border-radius: var(--radius-sm); padding: 1rem;">
-                        <span style="color: var(--accent); font-size: 0.75rem; font-weight: 700;">★ TOP MATCH</span>
-                        <h5 style="font-size: 1rem; color: #fff; margin: 0.4rem 0;">{{ prod.title }}</h5>
-                        <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.6rem;">{{ prod.category }}</p>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: var(--success); font-weight: bold;">${{ prod.price }}</span>
-                            <a href="/product/{{ prod.id }}" class="btn btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" 
-                               onclick="SmartRecoTracker.trackClickRecommendation({{ recommendation.id if recommendation else 0 }}, {{ prod.id }})">
+                    <div class="product-card">
+                        <div class="card-top-header">
+                            <span class="card-badge">{{ prod.category }}</span>
+                            <span class="rating-tag">★ {{ prod.rating }}</span>
+                        </div>
+                        <h4 class="card-title">{{ prod.title }}</h4>
+                        <p class="card-desc">{{ prod.description }}</p>
+                        <div class="card-footer">
+                            <span class="price-tag">${{ prod.price }}</span>
+                            <a href="/product/{{ prod.id }}" class="btn btn-primary reco-click-btn" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;"
+                               data-reco-id="{{ recommendation.id if (recommendation and recommendation.id) else 0 }}"
+                               data-prod-id="{{ prod.id }}">
                                 View Course →
                             </a>
                         </div>
@@ -60,7 +64,7 @@
 <!-- Catalog Filter and Search Bar -->
 <div class="filter-bar">
     <div class="search-box">
-        <input type="text" id="searchInput" class="form-input" placeholder="🔍 Search courses, skills, or topics (e.g. Agentic AI, Next.js, Vector DB)..." 
+        <input type="text" id="searchInput" class="form-input" placeholder="🔍 Search courses, skills, or topics (e.g. Cybersecurity, Agentic AI, Next.js)..." 
                value="{{ search_query or '' }}">
     </div>
     
@@ -73,37 +77,32 @@
 </div>
 
 <!-- Main Catalog Grid -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
     <h2>Course Catalog ({{ products|length }} Available)</h2>
-    <span style="color: var(--text-dim); font-size: 0.9rem;">Vector DB Dual-Write Synced</span>
+    <span style="color: var(--text-dim); font-size: 0.85rem;">Vector DB Dual-Write Synced</span>
 </div>
 
-<div class="product-grid">
+<div class="product-grid" id="mainCatalogGrid" data-product-count="{{ products|length if products else 0 }}">
     {% for prod in products %}
         <div class="product-card">
-            <div class="card-img-wrapper">
-                <img src="{{ prod.image_url }}" alt="{{ prod.title }}" class="card-img">
+            <div class="card-top-header">
                 <span class="card-badge">{{ prod.category }}</span>
+                <span class="rating-tag">★ {{ prod.rating }}</span>
             </div>
-            <div class="card-body">
-                <h3 class="card-title">{{ prod.title }}</h3>
-                <p class="card-desc">{{ prod.description }}</p>
-                
-                <div class="card-tags">
-                    {% for tag in prod.tags %}
-                        <span class="tag-pill">{{ tag }}</span>
-                    {% endfor %}
-                </div>
-                
-                <div class="card-footer">
-                    <div>
-                        <span class="price-tag">${{ prod.price }}</span>
-                        <span class="rating-tag" style="margin-left: 0.5rem;">★ {{ prod.rating }}</span>
-                    </div>
-                    <a href="/product/{{ prod.id }}" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
-                        Explore Course
-                    </a>
-                </div>
+            <h3 class="card-title">{{ prod.title }}</h3>
+            <p class="card-desc">{{ prod.description }}</p>
+            
+            <div class="card-tags">
+                {% for tag in prod.tags %}
+                    <span class="tag-pill">{{ tag }}</span>
+                {% endfor %}
+            </div>
+            
+            <div class="card-footer">
+                <span class="price-tag">${{ prod.price }}</span>
+                <a href="/product/{{ prod.id }}" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                    View Course →
+                </a>
             </div>
         </div>
     {% else %}
@@ -120,56 +119,79 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const categorySelect = document.getElementById('categorySelect');
     const refreshBtn = document.getElementById('refreshRecoBtn');
+    const catalogGrid = document.getElementById('mainCatalogGrid');
+    const productCount = catalogGrid ? parseInt(catalogGrid.dataset.productCount, 10) : 0;
+
+    // Track recommendation clicks via data attributes
+    const recoBtns = document.querySelectorAll('.reco-click-btn');
+    recoBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const recoId = parseInt(this.dataset.recoId, 10) || 0;
+            const prodId = parseInt(this.dataset.prodId, 10);
+            if (window.SmartRecoTracker) {
+                SmartRecoTracker.trackClickRecommendation(recoId, prodId);
+            }
+        });
+    });
 
     // Debounced search input tracker
     let searchTimer;
-    searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimer);
-        const query = this.value;
-        searchTimer = setTimeout(() => {
-            if (query.trim().length > 1) {
-                SmartRecoTracker.trackSearch(query, {{ products|length }});
-                // Filter URL redirect for instant catalog update
-                const cat = categorySelect.value;
-                window.location.href = `/?q=${encodeURIComponent(query)}&cat=${encodeURIComponent(cat)}`;
-            }
-        }, 600);
-    });
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimer);
+            const query = this.value;
+            searchTimer = setTimeout(() => {
+                if (query.trim().length > 1) {
+                    if (window.SmartRecoTracker) {
+                        SmartRecoTracker.trackSearch(query, productCount);
+                    }
+                    const cat = categorySelect ? categorySelect.value : 'All';
+                    window.location.href = `/?q=${encodeURIComponent(query)}&cat=${encodeURIComponent(cat)}`;
+                }
+            }, 600);
+        });
+    }
 
     // Category filter tracker
-    categorySelect.addEventListener('change', function() {
-        const cat = this.value;
-        SmartRecoTracker.trackCategoryFilter(cat);
-        const query = searchInput.value;
-        window.location.href = `/?q=${encodeURIComponent(query)}&cat=${encodeURIComponent(cat)}`;
-    });
+    if (categorySelect) {
+        categorySelect.addEventListener('change', function() {
+            const cat = this.value;
+            if (window.SmartRecoTracker) {
+                SmartRecoTracker.trackCategoryFilter(cat);
+            }
+            const query = searchInput ? searchInput.value : '';
+            window.location.href = `/?q=${encodeURIComponent(query)}&cat=${encodeURIComponent(cat)}`;
+        });
+    }
 
     // Refresh Recommendation button
-    refreshBtn.addEventListener('click', function() {
-        refreshBtn.innerText = "⏳ Generating AI Recommendation...";
-        refreshBtn.disabled = true;
-        
-        fetch('/api/recommendations/refresh', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: SmartRecoTracker.getSessionId() })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                window.location.reload();
-            } else {
-                alert("Recommendation refresh failed: " + (data.message || 'Unknown error'));
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            refreshBtn.innerText = "⏳ Generating AI Recommendation...";
+            refreshBtn.disabled = true;
+            
+            fetch('/api/recommendations/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: window.SmartRecoTracker ? SmartRecoTracker.getSessionId() : 'sess_default' })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert("Recommendation refresh failed: " + (data.message || 'Unknown error'));
+                    refreshBtn.innerText = "🔄 Refresh Recommendation";
+                    refreshBtn.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error("Refresh error:", err);
                 refreshBtn.innerText = "🔄 Refresh Recommendation";
                 refreshBtn.disabled = false;
-            }
-        })
-        .catch(err => {
-            console.error("Refresh error:", err);
-            refreshBtn.innerText = "🔄 Refresh Recommendation";
-            refreshBtn.disabled = false;
+            });
         });
-    });
+    }
 });
 </script>
 {% endblock %}

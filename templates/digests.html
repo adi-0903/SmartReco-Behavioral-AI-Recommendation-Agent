@@ -1,51 +1,45 @@
 {% extends 'base.html' %}
 
-{% block title %}Proactive Recommendation Email Digests — SmartReco{% endblock %}
+{% block title %}My Personal Email Notifications & Daily Digests — SmartReco{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-    <div>
-        <h1>Scheduled Proactive Recommendation Digests</h1>
-        <p style="color: var(--text-muted);">
-            Proactive background scheduler (APScheduler) automatically generates and delivers personalized 
-            email digests recapping user behavioral trends with custom persuasive narratives.
-        </p>
-    </div>
-    
-    <form method="POST" action="/digests/trigger_now">
-        <button type="submit" class="btn btn-primary">
-            ⚡ Trigger Scheduled Digest Batch Now
-        </button>
-    </form>
+<div class="hero-banner" style="margin-bottom: 2.5rem; padding: 2rem;">
+    <h1 class="hero-title" style="font-size: 2.2rem;">My Personal Email Notifications &amp; Daily Digests</h1>
+    <p class="hero-subtitle">
+        Proactive daily digest summaries generated specifically for your learning goals based on your recent searches, views, and dwell time.
+    </p>
 </div>
 
 {% for log in digests %}
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.8rem; margin-bottom: 1rem;">
+    <div style="background: rgba(18, 24, 38, 0.85); border: 1px solid var(--border-accent); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-glow);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.8rem; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.8rem;">
             <div>
-                <strong style="color: var(--accent); font-size: 1.1rem;">{{ log.subject }}</strong>
-                <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 0.2rem;">
-                    Recipient: <code>{{ log.recipient_email }}</code> • Sent at: {{ log.sent_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <span style="font-size: 1.2rem;">📩</span>
+                    <strong style="color: #fff; font-size: 1.15rem; font-family: 'Outfit', sans-serif;">{{ log.subject }}</strong>
+                </div>
+                <div style="color: var(--text-dim); font-size: 0.82rem; margin-top: 0.3rem;">
+                    Delivered to: <code style="color: var(--accent);">{{ log.recipient_email }}</code> • Date: {{ log.sent_at.strftime('%B %d, %Y at %H:%M:%S') }}
                 </div>
             </div>
             
-            <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 0.3rem 0.8rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">
-                Status: {{ log.status|upper }}
+            <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.78rem; font-weight: 700;">
+                ✓ INBOX DELIVERED
             </span>
         </div>
 
-        <div style="background: #0f172a; padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">
-                HTML Email Preview:
-            </div>
-            <div style="max-height: 250px; overflow-y: auto; padding: 0.5rem; background: #000; border-radius: 4px;">
-                {{ log.content_html | safe }}
-            </div>
+        <!-- Render HTML email body seamlessly -->
+        <div class="email-body-wrapper" style="width: 100%;">
+            {{ log.content_html | safe }}
         </div>
     </div>
 {% else %}
-    <div style="text-align: center; padding: 3rem; background: var(--bg-card); border-radius: var(--radius-md);">
-        <p style="color: var(--text-muted);">No proactive digest logs generated yet. Click "Trigger Scheduled Digest Batch Now" above to generate a digest batch!</p>
+    <div style="text-align: center; padding: 4rem 2rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">📬</div>
+        <h3 style="color: #fff; font-size: 1.4rem; margin-bottom: 0.5rem;">No Notification Digests Received Yet</h3>
+        <p style="color: var(--text-muted); max-width: 550px; margin: 0 auto;">
+            Explore courses or perform searches on the marketplace! Our background AI agent will automatically generate and deliver custom email digests tailored to your learning goals.
+        </p>
     </div>
 {% endfor %}
 {% endblock %}

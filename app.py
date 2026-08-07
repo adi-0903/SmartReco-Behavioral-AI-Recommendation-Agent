@@ -166,7 +166,7 @@ def register():
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
-        role = request.form.get('role', 'user')
+        role = 'user'  # All self-registered public accounts default to Learner User
 
         if User.query.filter_by(email=email).first():
             flash("An account with that email already exists.", "error")
@@ -178,7 +178,7 @@ def register():
         db.session.commit()
 
         session['user_id'] = user.id
-        flash("Account created successfully!", "success")
+        flash("Account created successfully! Welcome to SmartReco.", "success")
         return redirect(url_for('index'))
 
     return render_template('register.html', current_user=get_current_user())
@@ -269,7 +269,7 @@ def refresh_recommendations():
 @app.route('/admin/catalog')
 def admin_catalog():
     if not is_admin():
-        flash("Admin permissions required.", "error")
+        flash("Admin permissions required to access control panel.", "error")
         return redirect(url_for('login'))
 
     products = Product.query.order_by(Product.id.desc()).all()
@@ -285,9 +285,10 @@ def admin_catalog():
 @app.route('/admin/product/save', methods=['POST'])
 def admin_save_product():
     if not is_admin():
-        return jsonify({'status': 'unauthorized'}), 403
+        flash("Admin permissions required.", "error")
+        return redirect(url_for('login'))
 
-    product_id = request.form.get('product_id')
+    product_id = request.form.get('product_id', '').strip()
     title = request.form.get('title', '').strip()
     category = request.form.get('category', '').strip()
     description = request.form.get('description', '').strip()
@@ -296,7 +297,7 @@ def admin_save_product():
     tags = request.form.get('tags', '').strip()
 
     if product_id and product_id.isdigit():
-        # Update existing product
+        # Update existing product in SQL Database
         product = Product.query.get(int(product_id))
         if product:
             product.title = title
@@ -305,10 +306,14 @@ def admin_save_product():
             product.price = price
             product.rating = rating
             product.tags = tags
+            product.updated_at = datetime.utcnow()
             db.session.commit()
-            flash(f"Product #{product.id} updated in SQL Database.", "success")
+            flash(f"Success: Product #{product.id} ('{product.title}') updated in SQL Database.", "success")
+        else:
+            flash(f"Error: Product #{product_id} not found.", "error")
+            return redirect(url_for('admin_catalog'))
     else:
-        # Create new product
+        # Create new product in SQL Database
         product = Product(
             title=title,
             category=category,
@@ -319,12 +324,12 @@ def admin_save_product():
         )
         db.session.add(product)
         db.session.commit()
-        flash(f"New product #{product.id} created in SQL Database.", "success")
+        flash(f"Success: New Product #{product.id} ('{product.title}') created in SQL Database.", "success")
 
-    # DUAL-WRITE OPERATION: Synchronize to ChromaDB Vector Store
+    # DUAL-WRITE OPERATION: Synchronize immediately to ChromaDB Vector Store
     vector_success = vector_store.add_or_update_product(product.to_dict())
     if vector_success:
-        flash("Dual-Write SUCCESS: Vector embedding synchronized to Vector DB.", "success")
+        flash("Dual-Write SUCCESS: Product embedding updated in Vector DB.", "success")
     else:
         flash("Warning: SQL write succeeded but Vector DB dual-write failed.", "error")
 
@@ -333,7 +338,8 @@ def admin_save_product():
 @app.route('/admin/product/delete/<int:product_id>', methods=['POST'])
 def admin_delete_product(product_id):
     if not is_admin():
-        return jsonify({'status': 'unauthorized'}), 403
+        flash("Admin permissions required.", "error")
+        return redirect(url_for('login'))
 
     product = Product.query.get_or_404(product_id)
     title = product.title
@@ -350,6 +356,30 @@ def admin_delete_product(product_id):
         flash(f"Deleted '{title}' from SQL DB.", "success")
 
     return redirect(url_for('admin_catalog'))
+
+# --- ADMIN POWER COMMANDS (EVENTS & TRACES CLEARING) ---
+
+@app.route('/admin/events/clear', methods=['POST'])
+def admin_clear_events():
+    if not is_admin():
+        flash("Admin permissions required.", "error")
+        return redirect(url_for('login'))
+
+    Event.query.delete()
+    db.session.commit()
+    flash("Admin Power Command: All behavioral event stream logs cleared.", "success")
+    return redirect(url_for('admin_events'))
+
+@app.route('/admin/traces/clear', methods=['POST'])
+def admin_clear_traces():
+    if not is_admin():
+        flash("Admin permissions required.", "error")
+        return redirect(url_for('login'))
+
+    from agent.observability import AGENT_TRACES
+    AGENT_TRACES.clear()
+    flash("Admin Power Command: All agent execution trace logs cleared.", "success")
+    return redirect(url_for('admin_traces'))
 
 # --- ADMIN OBSERVABILITY & BEHAVIOR ROUTES ---
 
@@ -379,22 +409,73 @@ def digests():
     if not current_user:
         return redirect(url_for('login'))
 
-    digests_list = DigestLog.query.order_by(DigestLog.sent_at.desc()).all()
-    return render_template('digests.html', digests=digests_list, current_user=current_user)
+    # Student views their personal received email digests
+    user_digests = DigestLog.query.filter_by(user_id=current_user.id).order_by(DigestLog.sent_at.desc()).all()
+    return render_template('digests.html', digests=user_digests, current_user=current_user)
 
-@app.route('/digests/trigger_now', methods=['POST'])
-def trigger_digests_now():
-    current_user = get_current_user()
-    if not current_user:
+@app.route('/admin/digests')
+def admin_digests():
+    if not is_admin():
+        flash("Admin permissions required.", "error")
+        return redirect(url_for('login'))
+
+    # Build user-wise behavioral summary data for admin portal
+    regular_users = User.query.filter_by(role='user').order_by(User.id.asc()).all()
+    user_summaries = []
+
+    for u in regular_users:
+        events = Event.query.filter_by(user_id=u.id).order_by(Event.timestamp.desc()).all()
+        recent_searches = [e.get_details().get('query') for e in events if e.event_type == 'search' and e.get_details().get('query')][:3]
+        
+        # Analyze top category for this user
+        cats = [e.get_details().get('category') for e in events if e.get_details().get('category')]
+        top_cat = max(set(cats), key=cats.count) if cats else None
+        
+        user_summaries.append({
+            'user': u,
+            'event_count': len(events),
+            'recent_searches': recent_searches,
+            'top_category': top_cat
+        })
+
+    digest_logs = DigestLog.query.order_by(DigestLog.sent_at.desc()).limit(50).all()
+
+    return render_template(
+        'admin_digests.html',
+        user_summaries=user_summaries,
+        digest_logs=digest_logs,
+        current_user=get_current_user()
+    )
+
+@app.route('/admin/digests/trigger_all', methods=['POST'])
+def admin_trigger_all_digests():
+    if not is_admin():
+        flash("Admin permissions required.", "error")
         return redirect(url_for('login'))
 
     try:
         generate_proactive_digests_job(app)
-        flash("⚡ Scheduled Proactive Recommendation Digest batch executed successfully!", "success")
+        flash("⚡ 1-CLICK SUCCESS: Personalized AI Email Digests sent to ALL regular learners based on their individual behavioral demands!", "success")
     except Exception as e:
         flash(f"Digest batch execution failed: {e}", "error")
 
-    return redirect(url_for('digests'))
+    return redirect(url_for('admin_digests'))
+
+@app.route('/admin/digests/trigger_user/<int:user_id>', methods=['POST'])
+def admin_trigger_user_digest(user_id):
+    if not is_admin():
+        flash("Admin permissions required.", "error")
+        return redirect(url_for('login'))
+
+    from scheduler import generate_digest_for_single_user
+    user = User.query.get_or_404(user_id)
+    success = generate_digest_for_single_user(app, user_id)
+    if success:
+        flash(f"⚡ 1-CLICK SUCCESS: Personalized AI Email Digest generated and sent to {user.name} ({user.email}) based on their specific activity!", "success")
+    else:
+        flash(f"Failed to generate digest for {user.name}.", "error")
+
+    return redirect(url_for('admin_digests'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

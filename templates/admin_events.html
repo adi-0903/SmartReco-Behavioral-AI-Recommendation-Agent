@@ -41,10 +41,15 @@
                     <div style="font-size: 0.75rem; color: var(--text-dim);">{{ ev.session_id }}</div>
                 </td>
                 <td>
-                    <span class="card-badge" style="position: static; 
-                          background: {% if ev.event_type=='search' %}rgba(99, 102, 241, 0.2){% elif ev.event_type=='product_view' %}rgba(56, 189, 248, 0.2){% elif ev.event_type=='dwell_time' %}rgba(245, 158, 11, 0.2){% else %}rgba(255,255,255,0.05){% endif %};">
-                        {{ ev.event_type }}
-                    </span>
+                    {% if ev.event_type == 'search' %}
+                        <span class="card-badge badge-search" style="position: static;">{{ ev.event_type }}</span>
+                    {% elif ev.event_type == 'product_view' %}
+                        <span class="card-badge badge-view" style="position: static;">{{ ev.event_type }}</span>
+                    {% elif ev.event_type == 'dwell_time' %}
+                        <span class="card-badge badge-dwell" style="position: static;">{{ ev.event_type }}</span>
+                    {% else %}
+                        <span class="card-badge badge-default" style="position: static;">{{ ev.event_type }}</span>
+                    {% endif %}
                 </td>
                 <td><strong>{{ ev.target_id or '-' }}</strong></td>
                 <td>

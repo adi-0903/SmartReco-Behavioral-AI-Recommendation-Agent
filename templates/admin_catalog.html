@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 
-{% block title %}Admin Catalog Management — Dual-Write Sync{% endblock %}
+{% block title %}Admin Catalog Management — Dual-Write Sync & Full Admin Control{% endblock %}
 
 {% block content %}
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
     <div>
-        <h1>Product Catalog Management</h1>
+        <h1>Admin Control Panel — Catalog & Dual-Write</h1>
         <p style="color: var(--text-muted);">
-            Dual-Write Enabled: Every creation, update, and deletion is synchronized simultaneously in 
-            <strong>SQLite Database</strong> &amp; <strong>ChromaDB Vector Store</strong>.
+            Full Administrator Capabilities: Create, Edit, Delete catalog items with instant 
+            <strong>SQLite DB</strong> &amp; <strong>ChromaDB Vector Store</strong> Dual-Write sync.
         </p>
     </div>
     
@@ -16,8 +16,8 @@
         <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600;">
             ✓ Vector Embeddings Active ({{ vector_count }} stored)
         </span>
-        <button onclick="document.getElementById('productFormModal').style.display='flex'" class="btn btn-primary">
-            + Add New Product
+        <button onclick="openCreateModal()" class="btn btn-primary">
+            + Create New Product
         </button>
     </div>
 </div>
@@ -32,7 +32,7 @@
             <th>Price</th>
             <th>Rating</th>
             <th>Dual-Write Status</th>
-            <th>Actions</th>
+            <th>Admin Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -53,15 +53,29 @@
                 </td>
                 <td>
                     <div style="display: flex; gap: 0.5rem;">
-                        <button onclick="editProduct({{ prod|tojson }})" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">
-                            Edit
+                        <button type="button" class="btn btn-secondary edit-prod-btn" 
+                                style="padding: 0.3rem 0.7rem; font-size: 0.8rem;"
+                                data-id="{{ prod.id }}"
+                                data-title="{{ prod.title|e }}"
+                                data-category="{{ prod.category|e }}"
+                                data-description="{{ prod.description|e }}"
+                                data-price="{{ prod.price }}"
+                                data-rating="{{ prod.rating }}"
+                                data-tags="{{ prod.tags|join(', ')|e }}">
+                            ✏️ Edit Product
                         </button>
-                        <form method="POST" action="/admin/product/delete/{{ prod.id }}" onsubmit="return confirm('Delete product #{{ prod.id }} from SQL and Vector DB?');">
-                            <button type="submit" class="btn btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">
-                                Delete
+                        <form method="POST" action="/admin/product/delete/{{ prod.id }}" onsubmit="return confirm('ADMIN WARNING: Permanently delete product #{{ prod.id }} from SQL and Vector DB?');">
+                            <button type="submit" class="btn btn-danger" style="padding: 0.3rem 0.7rem; font-size: 0.8rem;">
+                                🗑️ Delete
                             </button>
                         </form>
                     </div>
+                </td>
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                    No products in catalog. Click "+ Create New Product" to add one!
                 </td>
             </tr>
         {% endfor %}
@@ -69,19 +83,19 @@
 </table>
 
 <!-- Add / Edit Modal -->
-<div id="productFormModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 200; align-items: center; justify-content: center;">
-    <div style="background: var(--bg-dark); border: 1px solid var(--border-accent); border-radius: var(--radius-lg); padding: 2rem; width: 90%; max-width: 600px; box-shadow: var(--shadow-glow);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h3 id="modalTitle">Add Product (Dual-Write)</h3>
-            <button onclick="document.getElementById('productFormModal').style.display='none'" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+<div id="productFormModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 200; align-items: center; justify-content: center;">
+    <div style="background: var(--bg-dark); border: 1px solid var(--border-accent); border-radius: var(--radius-lg); padding: 2.2rem; width: 90%; max-width: 620px; box-shadow: var(--shadow-glow);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.8rem;">
+            <h3 id="modalTitle" style="color: #fff; font-size: 1.4rem;">Add Product (Dual-Write)</h3>
+            <button onclick="closeModal()" style="background: none; border: none; color: #fff; font-size: 1.8rem; cursor: pointer;">&times;</button>
         </div>
 
         <form id="productForm" method="POST" action="/admin/product/save">
             <input type="hidden" name="product_id" id="formProductId" value="">
 
             <div class="form-group">
-                <label class="form-label">Title</label>
-                <input type="text" name="title" id="formTitle" class="form-input" required>
+                <label class="form-label">Course / Product Title</label>
+                <input type="text" name="title" id="formTitle" class="form-input" placeholder="e.g. Masterclass in Agentic AI" required>
             </div>
 
             <div class="form-group">
@@ -96,29 +110,29 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Description</label>
-                <textarea name="description" id="formDescription" class="form-textarea" rows="3" required></textarea>
+                <label class="form-label">Full Description</label>
+                <textarea name="description" id="formDescription" class="form-textarea" rows="4" placeholder="Detailed product description..." required></textarea>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                 <div class="form-group">
                     <label class="form-label">Price ($)</label>
-                    <input type="number" step="0.01" name="price" id="formPrice" class="form-input" required>
+                    <input type="number" step="0.01" name="price" id="formPrice" class="form-input" placeholder="79.99" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Rating (1.0 - 5.0)</label>
-                    <input type="number" step="0.1" name="rating" id="formRating" class="form-input" value="4.8">
+                    <input type="number" step="0.1" name="rating" id="formRating" class="form-input" value="4.8" required>
                 </div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Tags (comma separated)</label>
-                <input type="text" name="tags" id="formTags" class="form-input" placeholder="AI, Python, LangGraph">
+                <input type="text" name="tags" id="formTags" class="form-input" placeholder="Agentic AI, Python, LangGraph, RAG">
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
-                <button type="button" onclick="document.getElementById('productFormModal').style.display='none'" class="btn btn-secondary">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Dual-Write Product</button>
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">⚡ Save Product (Dual-Write Sync)</button>
             </div>
         </form>
     </div>
@@ -127,17 +141,40 @@
 
 {% block scripts %}
 <script>
-function editProduct(prod) {
-    document.getElementById('modalTitle').innerText = `Edit Product #${prod.id} (Dual-Write)`;
-    document.getElementById('formProductId').value = prod.id;
-    document.getElementById('formTitle').value = prod.title;
-    document.getElementById('formCategory').value = prod.category;
-    document.getElementById('formDescription').value = prod.description;
-    document.getElementById('formPrice').value = prod.price;
-    document.getElementById('formRating').value = prod.rating;
-    document.getElementById('formTags').value = Array.isArray(prod.tags) ? prod.tags.join(', ') : prod.tags;
-    
+function openCreateModal() {
+    document.getElementById('modalTitle').innerText = "⚡ Create New Product (Dual-Write)";
+    document.getElementById('formProductId').value = "";
+    document.getElementById('formTitle').value = "";
+    document.getElementById('formCategory').value = "Generative AI & Agents";
+    document.getElementById('formDescription').value = "";
+    document.getElementById('formPrice').value = "";
+    document.getElementById('formRating').value = "4.8";
+    document.getElementById('formTags').value = "";
     document.getElementById('productFormModal').style.display = 'flex';
 }
+
+function closeModal() {
+    document.getElementById('productFormModal').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Attach click listeners to all edit buttons using data attributes
+    const editBtns = document.querySelectorAll('.edit-prod-btn');
+    editBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const ds = this.dataset;
+            document.getElementById('modalTitle').innerText = `⚡ Edit Product #${ds.id} (Dual-Write)`;
+            document.getElementById('formProductId').value = ds.id;
+            document.getElementById('formTitle').value = ds.title || "";
+            document.getElementById('formCategory').value = ds.category || "Generative AI & Agents";
+            document.getElementById('formDescription').value = ds.description || "";
+            document.getElementById('formPrice').value = ds.price || "0";
+            document.getElementById('formRating').value = ds.rating || "4.8";
+            document.getElementById('formTags').value = ds.tags || "";
+            
+            document.getElementById('productFormModal').style.display = 'flex';
+        });
+    });
+});
 </script>
 {% endblock %}

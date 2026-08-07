@@ -19,8 +19,10 @@
                     <li><a href="/admin/catalog" class="nav-link {% if '/admin/catalog' in request.path %}active{% endif %}">Manage Catalog <span class="nav-badge">Dual-Write</span></a></li>
                     <li><a href="/admin/events" class="nav-link {% if '/admin/events' in request.path %}active{% endif %}">Behavior Stream</a></li>
                     <li><a href="/admin/traces" class="nav-link {% if '/admin/traces' in request.path %}active{% endif %}">Agent Traces</a></li>
+                    <li><a href="/admin/digests" class="nav-link {% if '/admin/digests' in request.path %}active{% endif %}">Digest Control <span class="nav-badge">Proactive</span></a></li>
+                {% else %}
+                    <li><a href="/digests" class="nav-link {% if '/digests' in request.path %}active{% endif %}">My Email Digests</a></li>
                 {% endif %}
-                <li><a href="/digests" class="nav-link {% if '/digests' in request.path %}active{% endif %}">Email Digests <span class="nav-badge">Proactive</span></a></li>
                 <li><span style="color: var(--accent); font-weight: 600; font-size: 0.9rem;">👤 {{ current_user.name }} ({{ current_user.role }})</span></li>
                 <li><a href="/logout" class="btn btn-secondary" style="padding: 0.3rem 0.8rem;">Logout</a></li>
             {% else %}
@@ -35,9 +37,7 @@
             {% if messages %}
                 <div style="margin-bottom: 1.5rem;">
                     {% for category, message in messages %}
-                        <div style="padding: 0.9rem 1.2rem; border-radius: var(--radius-sm); margin-bottom: 0.5rem; 
-                                    background: {% if category=='error' %}rgba(239, 68, 68, 0.2){% else %}rgba(16, 185, 129, 0.2){% endif %};
-                                    border: 1px solid {% if category=='error' %}#ef4444{% else %}#10b981{% endif %}; color: #fff;">
+                        <div class="flash-message {% if category == 'error' %}flash-error{% else %}flash-success{% endif %}">
                             {{ message }}
                         </div>
                     {% endfor %}

@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Proactive Email Digest Control Portal — SmartReco{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1>Admin Proactive Email Digest Control Portal</h1>
+        <p style="color: var(--text-muted);">
+            Manage user-wise behavioral data and trigger personalized AI email digests tailored to each user's unique interest profile.
+        </p>
+    </div>
+    
+    <form method="POST" action="/admin/digests/trigger_all">
+        <button type="submit" class="btn btn-primary" style="padding: 0.7rem 1.4rem; font-size: 0.95rem;">
+            ⚡ Trigger Personalized Digests for ALL Users (1-Click)
+        </button>
+    </form>
+</div>
+
+<!-- User-Wise Behavioral Summary Table -->
+<h3 style="margin-bottom: 1rem; font-size: 1.3rem;">Registered Learner Profiles &amp; Behavioral Data</h3>
+<table class="data-table" style="margin-bottom: 3rem;">
+    <thead>
+        <tr>
+            <th>User ID</th>
+            <th>Name &amp; Email</th>
+            <th>Total Events</th>
+            <th>Primary Interest Domain</th>
+            <th>Recent Search Terms</th>
+            <th>Admin Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u_info in user_summaries %}
+            <tr>
+                <td>#{{ u_info.user.id }}</td>
+                <td>
+                    <strong>{{ u_info.user.name }}</strong>
+                    <div style="font-size: 0.8rem; color: var(--text-dim);">{{ u_info.user.email }}</div>
+                </td>
+                <td><span class="card-badge" style="position: static;">{{ u_info.event_count }} Signals</span></td>
+                <td>
+                    <strong style="color: var(--accent);">{{ u_info.top_category or 'General Discovery' }}</strong>
+                </td>
+                <td style="font-size: 0.85rem; color: var(--text-muted);">
+                    {{ u_info.recent_searches|join(', ') if u_info.recent_searches else 'None' }}
+                </td>
+                <td>
+                    <form method="POST" action="/admin/digests/trigger_user/{{ u_info.user.id }}">
+                        <button type="submit" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                            📩 Send Personalized Digest
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No regular learners registered yet.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Sent Digests Stream -->
+<h3 style="margin-bottom: 1.2rem; font-size: 1.3rem;">Sent Email Digest Logs</h3>
+{% for log in digest_logs %}
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.8rem; margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.8rem;">
+            <div>
+                <strong style="color: var(--accent); font-size: 1.15rem; font-family: 'Outfit', sans-serif;">{{ log.subject }}</strong>
+                <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 0.2rem;">
+                    Recipient: <code>{{ log.recipient_email }}</code> • Sent at: {{ log.sent_at.strftime('%B %d, %Y at %H:%M:%S') }}
+                </div>
+            </div>
+            
+            <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">
+                Status: {{ log.status|upper }}
+            </span>
+        </div>
+
+        <div class="email-body-wrapper" style="width: 100%;">
+            {{ log.content_html | safe }}
+        </div>
+    </div>
+{% else %}
+    <div style="text-align: center; padding: 3rem; background: var(--bg-card); border-radius: var(--radius-lg);">
+        <p style="color: var(--text-muted);">No email digests sent yet. Click "⚡ Trigger Personalized Digests for ALL Users" to generate user digests!</p>
+    </div>
+{% endfor %}
+{% endblock %}

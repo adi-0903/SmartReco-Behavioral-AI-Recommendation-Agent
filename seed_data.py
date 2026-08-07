@@ -24,6 +24,42 @@ COURSES_SEED = [
         "image_url": "https://picsum.photos/seed/vector_rag/400/250"
     },
     {
+        "title": "LLM Fine-Tuning & Quantization Techniques",
+        "description": "Train custom open-source Large Language Models using QLoRA, Axolotl, Unsloth, llama.cpp, and vLLM inference server acceleration.",
+        "category": "Generative AI & Agents",
+        "price": 99.99,
+        "rating": 4.9,
+        "tags": "LLM, Fine-Tuning, LoRA, Open Source, Llama, AI",
+        "image_url": "https://picsum.photos/seed/llm_tune/400/250"
+    },
+    {
+        "title": "Ethical Hacking & Offensive Cyber Security",
+        "description": "Learn network penetration testing, web app vulnerability scanning, reverse engineering, exploit development, and SOC threat monitoring.",
+        "category": "Cybersecurity",
+        "price": 99.99,
+        "rating": 4.8,
+        "tags": "Cybersecurity, Hacking, Penetration Testing, Network, Security, Vulnerability",
+        "image_url": "https://picsum.photos/seed/security/400/250"
+    },
+    {
+        "title": "Cloud Security & Threat Hunting Masterclass",
+        "description": "Protect AWS, GCP, and Azure cloud infrastructure with IAM policies, SOC log auditing, container security, incident response, and zero-trust security architecture.",
+        "category": "Cybersecurity",
+        "price": 89.99,
+        "rating": 4.9,
+        "tags": "Cybersecurity, Cloud Security, Threat Hunting, AWS, Zero Trust, Incident Response",
+        "image_url": "https://picsum.photos/seed/cloud_sec/400/250"
+    },
+    {
+        "title": "Web Application Hacking & Bug Bounty Essentials",
+        "description": "Master OWASP Top 10 web vulnerabilities including SQL Injection, Cross-Site Scripting (XSS), CSRF, Authentication Bypass, and automated vulnerability scanning tools.",
+        "category": "Cybersecurity",
+        "price": 79.99,
+        "rating": 4.8,
+        "tags": "Cybersecurity, Web Security, Hacking, OWASP, Bug Bounty, Penetration Testing",
+        "image_url": "https://picsum.photos/seed/bug_bounty/400/250"
+    },
+    {
         "title": "Fullstack Next.js 14 & AI Application Masterclass",
         "description": "Develop high-performance modern web apps with React, Next.js App Router, Tailwind CSS, TypeScript, Server Actions, and real-time streaming AI chat interfaces.",
         "category": "Web Development & Fullstack",
@@ -76,24 +112,6 @@ COURSES_SEED = [
         "rating": 4.9,
         "tags": "AWS, Cloud, Architecture, Security, Serverless",
         "image_url": "https://picsum.photos/seed/aws/400/250"
-    },
-    {
-        "title": "Ethical Hacking & Offensive Cyber Security",
-        "description": "Learn network penetration testing, web app vulnerability scanning, reverse engineering, exploit development, and SOC threat monitoring.",
-        "category": "Cybersecurity",
-        "price": 99.99,
-        "rating": 4.8,
-        "tags": "Cybersecurity, Hacking, Penetration Testing, Network, Security",
-        "image_url": "https://picsum.photos/seed/security/400/250"
-    },
-    {
-        "title": "LLM Fine-Tuning & Quantization Techniques",
-        "description": "Train custom open-source Large Language Models using QLoRA, Axolotl, Unsloth, llama.cpp, and vLLM inference server acceleration.",
-        "category": "Generative AI & Agents",
-        "price": 99.99,
-        "rating": 4.9,
-        "tags": "LLM, Fine-Tuning, LoRA, Open Source, Llama, AI",
-        "image_url": "https://picsum.photos/seed/llm_tune/400/250"
     }
 ]
 
@@ -116,15 +134,14 @@ def seed_database():
 
     db.session.commit()
 
-    # 2. Seed Products if count < 5
-    if Product.query.count() < len(COURSES_SEED):
-        for c_data in COURSES_SEED:
-            existing = Product.query.filter_by(title=c_data['title']).first()
-            if not existing:
-                prod = Product(**c_data)
-                db.session.add(prod)
-        db.session.commit()
-        logger.info("SQL Product Catalog seeded.")
+    # 2. Seed Products
+    for c_data in COURSES_SEED:
+        existing = Product.query.filter_by(title=c_data['title']).first()
+        if not existing:
+            prod = Product(**c_data)
+            db.session.add(prod)
+    db.session.commit()
+    logger.info("SQL Product Catalog seeded with rich multi-category courses.")
 
     # 3. Dual-Write sync all products into ChromaDB Vector Store
     all_products = Product.query.all()
