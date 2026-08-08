@@ -65,6 +65,7 @@
 
                         <!-- Action: Remove Student -->
                         <form action="/admin/student/delete/{{ s.user.id }}" method="POST" onsubmit="return confirm('Are you sure you want to remove student {{ s.user.email }}?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-secondary" style="color: #f87171; border-color: rgba(248, 113, 113, 0.3); padding: 0.4rem 0.9rem; font-size: 0.8rem;">
                                 Remove Student
                             </button>

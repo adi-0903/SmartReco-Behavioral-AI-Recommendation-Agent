@@ -141,6 +141,7 @@
             </p>
 
             <form method="POST" action="/change_password" id="changePasswordForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label class="form-label" style="font-size: 0.85rem;">Current Password</label>
                     <input type="password" name="current_password" class="form-input" placeholder="••••••••" required>

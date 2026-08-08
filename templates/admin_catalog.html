@@ -65,6 +65,7 @@
                             ✏️ Edit Product
                         </button>
                         <form method="POST" action="/admin/product/delete/{{ prod.id }}" onsubmit="return confirm('ADMIN WARNING: Permanently delete product #{{ prod.id }} from SQL and Vector DB?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-danger" style="padding: 0.3rem 0.7rem; font-size: 0.8rem;">
                                 🗑️ Delete
                             </button>
@@ -91,6 +92,7 @@
         </div>
 
         <form id="productForm" method="POST" action="/admin/product/save">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="product_id" id="formProductId" value="">
 
             <div class="form-group">

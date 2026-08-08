@@ -1,6 +1,7 @@
 import logging
 from models import db, User, Product, Event, Recommendation
 from vector_store import vector_store
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -301,11 +302,17 @@ def seed_database():
     logger.info("Checking database seed status...")
     
     # 1. Seed Users if not present
-    admin = User.query.filter_by(email='admin@smartreco.com').first()
-    if not admin:
-        admin = User(email='admin@smartreco.com', name='System Admin', role='admin')
-        admin.set_password('admin')
-        db.session.add(admin)
+    admin_email = Config.ADMIN_EMAIL
+    admin_password = Config.ADMIN_PASSWORD
+    
+    if not admin_email or not admin_password:
+        logger.warning("ADMIN_EMAIL or ADMIN_PASSWORD not set in environment. Skipping admin user creation.")
+    else:
+        admin = User.query.filter_by(email=admin_email).first()
+        if not admin:
+            admin = User(email=admin_email, name='System Admin', role='admin')
+            admin.set_password(admin_password)
+            db.session.add(admin)
 
     db.session.commit()
 

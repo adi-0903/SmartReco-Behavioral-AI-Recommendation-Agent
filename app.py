@@ -1,8 +1,13 @@
 import os
 import json
-import logging
+import sys
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, g
+from flask_wtf.csrf import CSRFProtect, CSRFError, generate_csrf
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+import structlog
+from structlog.stdlib import ProcessorFormatter
 
 from config import Config
 from models import db, User, Product, Event, Recommendation, DigestLog, Enrollment
@@ -12,14 +17,80 @@ from agent.observability import get_all_traces, get_trace_by_id
 from scheduler import init_scheduler, generate_proactive_digests_job
 from seed_data import seed_database
 from email_service import send_otp_email
+from cache_service import cache_service
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
-logger = logging.getLogger(__name__)
+
+def configure_logging():
+    """Configure structured logging with structlog."""
+    timestamper = structlog.processors.TimeStamper(fmt="iso", utc=True)
+    
+    shared_processors = [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        timestamper,
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+    ]
+    
+    if Config.FLASK_ENV == "production":
+        renderer = structlog.processors.JSONRenderer()
+    else:
+        renderer = structlog.dev.ConsoleRenderer(colors=True)
+    
+    formatter = ProcessorFormatter(
+        processor=renderer,
+        foreign_pre_chain=shared_processors,
+    )
+    
+    import logging
+    root_logger = logging.getLogger()
+    root_logger.handlers = []
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    root_logger.handlers = [handler]
+    root_logger.setLevel(logging.INFO)
+    
+    structlog.configure(
+        processors=shared_processors + [
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+
+configure_logging()
+logger = structlog.get_logger(__name__)
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Initialize extensions
+csrf = CSRFProtect(app)
 db.init_app(app)
+
+# Rate Limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[Config.RATELIMIT_DEFAULT],
+    storage_uri=Config.RATELIMIT_STORAGE_URL,
+    strategy="fixed-window",
+)
+
+# CSRF error handler
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    logger.warning("csrf_error", reason=e.description, ip=get_remote_address())
+    if request.is_json or request.path.startswith('/api/'):
+        return jsonify({"status": "error", "message": "CSRF token missing or invalid"}), 400
+    flash("Security token expired. Please refresh the page and try again.", "error")
+    return redirect(request.url)
+
 
 # Session helper functions
 def get_current_user():
@@ -28,26 +99,68 @@ def get_current_user():
         return User.query.get(user_id)
     return None
 
+
 def is_admin():
     user = get_current_user()
     return user and user.role == 'admin'
 
+
 @app.before_request
 def setup_app_context():
-    # Ensure tables exist and seed data on first request
+    """Ensure tables exist and seed data on first request."""
     if not getattr(app, '_db_initialized', False):
-        db.create_all()
-        try:
-            seed_database()
-        except Exception as e:
-            logger.error(f"Error during DB seeding: {e}")
-        try:
-            init_scheduler(app)
-        except Exception as e:
-            logger.error(f"Error initializing scheduler: {e}")
-        app._db_initialized = True
+        with app.app_context():
+            db.create_all()
+            try:
+                seed_database()
+            except Exception as e:
+                logger.error("db_seeding_error", error=str(e))
+            try:
+                init_scheduler(app)
+            except Exception as e:
+                logger.error("scheduler_init_error", error=str(e))
+            app._db_initialized = True
 
-# --- MARKETPLACE & CATALOG ROUTES ---
+
+@app.before_request
+def add_csrf_to_g():
+    """Make CSRF token available in templates."""
+    g.csrf_token = generate_csrf
+
+
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    """Health check endpoint for load balancers."""
+    return jsonify({
+        "status": "healthy",
+        "service": "smartreco",
+        "version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+
+# Error handlers
+@app.errorhandler(404)
+def not_found_error(e):
+    logger.warning("not_found", path=request.path, method=request.method)
+    if request.path.startswith('/api/'):
+        return jsonify({"status": "error", "message": "Resource not found"}), 404
+    return render_template('404.html'), 404
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    logger.error("internal_error", error=str(e), path=request.path)
+    db.session.rollback()
+    if request.path.startswith('/api/'):
+        return jsonify({"status": "error", "message": "Internal server error"}), 500
+    return render_template('500.html'), 500
+
+
+# =============================================================================
+# MARKETPLACE & CATALOG ROUTES
+# =============================================================================
 
 @app.route('/')
 def index():
@@ -76,34 +189,43 @@ def index():
 
     user_id = current_user.id if current_user else None
     if user_id:
-        # Check latest stored recommendation
-        rec_record = Recommendation.query.filter_by(user_id=user_id).order_by(Recommendation.created_at.desc()).first()
-        
-        # If no recommendation exists or if events updated, generate recommendation
-        if not rec_record:
-            user_events = Event.query.filter_by(user_id=user_id).order_by(Event.timestamp.desc()).limit(15).all()
-            event_dicts = [e.to_dict() for e in user_events]
-            session_id = session.get('session_id', 'sess_default')
+        # Try cache first
+        cached_rec = cache_service.get_recommendation(user_id)
+        if cached_rec:
+            recommendation = cached_rec
+            rec_product_ids = recommendation.get('product_ids', [])
+        else:
+            # Check latest stored recommendation
+            rec_record = Recommendation.query.filter_by(user_id=user_id).order_by(Recommendation.created_at.desc()).first()
             
-            try:
-                res = recommendation_engine.run(user_id, session_id, event_dicts, trigger_reason="initial_visit")
-                rec_record = Recommendation(
-                    user_id=user_id,
-                    narrative=res['narrative'],
-                    recommended_product_ids_json=str(res['recommended_product_ids']),
-                    trigger_reason="initial_visit",
-                    metadata_json=json.dumps(res.get('metadata', {}))
-                )
-                db.session.add(rec_record)
-                db.session.commit()
-            except Exception as e:
-                logger.error(f"Failed to generate initial recommendation: {e}")
+            # If no recommendation exists or if events updated, generate recommendation
+            if not rec_record:
+                user_events = Event.query.filter_by(user_id=user_id).order_by(Event.timestamp.desc()).limit(15).all()
+                event_dicts = [e.to_dict() for e in user_events]
+                session_id = session.get('session_id', 'sess_default')
+                
+                try:
+                    res = recommendation_engine.run(user_id, session_id, event_dicts, trigger_reason="initial_visit")
+                    rec_record = Recommendation(
+                        user_id=user_id,
+                        narrative=res['narrative'],
+                        recommended_product_ids_json=str(res['recommended_product_ids']),
+                        trigger_reason="initial_visit",
+                        metadata_json=json.dumps(res.get('metadata', {}))
+                    )
+                    db.session.add(rec_record)
+                    db.session.commit()
+                except Exception as e:
+                    logger.error("initial_recommendation_error", error=str(e), user_id=user_id)
 
-        if rec_record:
-            recommendation = rec_record.to_dict()
-            rec_product_ids = rec_record.get_product_ids()
-            if rec_product_ids:
-                recommended_products = [Product.query.get(pid).to_dict() for pid in rec_product_ids if Product.query.get(pid)]
+            if rec_record:
+                recommendation = rec_record.to_dict()
+                rec_product_ids = rec_record.get_product_ids()
+                # Cache the recommendation
+                cache_service.set_recommendation(user_id, recommendation, ttl=Config.RECOMMENDATION_TTL_SECONDS)
+        
+        if recommendation and rec_product_ids:
+            recommended_products = [Product.query.get(pid).to_dict() for pid in rec_product_ids if Product.query.get(pid)]
 
     # Fetch unique categories for filter UI
     categories = [c[0] for c in db.session.query(Product.category).distinct().all()]
@@ -118,6 +240,7 @@ def index():
         search_query=search_query,
         current_user=current_user
     )
+
 
 @app.route('/product/<int:product_id>')
 def product_detail(product_id):
@@ -146,9 +269,14 @@ def product_detail(product_id):
         current_user=current_user
     )
 
-# --- AUTHENTICATION ROUTES ---
+
+# =============================================================================
+# AUTHENTICATION ROUTES
+# =============================================================================
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
+@csrf.exempt
 def login():
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
@@ -157,14 +285,20 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             session['user_id'] = user.id
+            session['session_id'] = f"sess_{user.id}_{datetime.utcnow().timestamp()}"
             flash(f"Welcome back, {user.name}!", "success")
+            logger.info("user_login", user_id=user.id, email=user.email)
             return redirect(url_for('index'))
         else:
+            logger.warning("login_failed", email=email, ip=get_remote_address())
             flash("Invalid email address or password.", "error")
 
     return render_template('login.html', current_user=get_current_user())
 
+
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
+@csrf.exempt
 def register():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -172,6 +306,10 @@ def register():
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
         role = 'user'  # All self-registered public accounts default to Learner User
+
+        if not name or not email or not password:
+            flash("All fields are required.", "error")
+            return redirect(url_for('register'))
 
         if confirm_password and password != confirm_password:
             flash("Passwords do not match. Please enter matching passwords.", "error")
@@ -203,11 +341,15 @@ def register():
         else:
             flash(f"📩 6-Digit Verification OTP code generated for {user.email}!", "success")
             
+        logger.info("user_registered", user_id=user.id, email=user.email)
         return redirect(url_for('verify_otp'))
 
     return render_template('register.html', current_user=get_current_user())
 
+
 @app.route('/verify_otp', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
+@csrf.exempt
 def verify_otp():
     pending_id = session.get('pending_user_id')
     if not pending_id:
@@ -224,20 +366,25 @@ def verify_otp():
         if user.verify_otp(otp_input):
             db.session.commit()
             session['user_id'] = user.id
+            session['session_id'] = f"sess_{user.id}_{datetime.utcnow().timestamp()}"
             session.pop('pending_user_id', None)
             flash(f"🎉 Email verified successfully! Welcome to SmartReco, {user.name}!", "success")
+            logger.info("otp_verified", user_id=user.id, email=user.email)
             return redirect(url_for('index'))
         else:
+            logger.warning("otp_invalid", user_id=user.id, ip=get_remote_address())
             flash("❌ Invalid OTP code. Please enter the correct 6-digit passcode.", "error")
 
     return render_template(
         'verify_otp.html',
         unverified_email=user.email,
-        demo_otp=user.otp_code,
         current_user=get_current_user()
     )
 
+
 @app.route('/resend_otp', methods=['POST'])
+@limiter.limit("3 per minute")
+@csrf.exempt
 def resend_otp():
     pending_id = session.get('pending_user_id')
     if not pending_id:
@@ -256,6 +403,7 @@ def resend_otp():
 
     return redirect(url_for('verify_otp'))
 
+
 @app.route('/profile')
 def profile():
     user = get_current_user()
@@ -270,7 +418,9 @@ def profile():
         enrollments=user_enrollments
     )
 
+
 @app.route('/enroll/<int:product_id>', methods=['POST'])
+@csrf.exempt
 def enroll_course(product_id):
     user = get_current_user()
     if not user:
@@ -285,12 +435,16 @@ def enroll_course(product_id):
         db.session.add(enr)
         db.session.commit()
         flash(f"🎉 Successfully enrolled in '{product.title}'! Access it anytime in your profile.", "success")
+        logger.info("course_enrolled", user_id=user.id, product_id=product.id)
     else:
         flash(f"You are already enrolled in '{product.title}'.", "info")
 
     return redirect(url_for('profile'))
 
+
 @app.route('/change_password', methods=['POST'])
+@limiter.limit("5 per minute")
+@csrf.exempt
 def change_password():
     user = get_current_user()
     if not user:
@@ -312,14 +466,19 @@ def change_password():
     user.set_password(new_pwd)
     db.session.commit()
     flash("🔒 Password updated successfully!", "success")
+    logger.info("password_changed", user_id=user.id)
     return redirect(url_for('profile'))
+
 
 @app.route('/assistant')
 def ai_assistant():
     """Dedicated Full-Page AI Coding & Learning Studio Workstation."""
     return render_template('ai_assistant.html')
 
+
 @app.route('/api/chat', methods=['POST'])
+@limiter.limit("30 per minute")
+@csrf.exempt
 def api_chat():
     import httpx
     data = request.get_json() or {}
@@ -400,19 +559,22 @@ def api_chat():
                 "temperature": 0.7,
                 "max_tokens": 350
             }
-            resp = httpx.post(f"{mesh_url}/chat/completions", headers=headers, json=payload, timeout=5.0)
+            resp = httpx.post(f"{mesh_url}/chat/completions", headers=headers, json=payload, timeout=8.0)
             if resp.status_code == 200:
                 reply = resp.json()['choices'][0]['message']['content'].strip()
-                logger.info(f"Mesh API Response generated successfully for query '{user_msg}'")
+                logger.info("mesh_api_success", query=user_msg[:50])
+            elif resp.status_code == 400:
+                logger.warning("mesh_api_400", error=resp.text[:200])
         except Exception as e:
-            logger.warning(f"Mesh API call timeout/error: {e}")
+            logger.warning("mesh_api_error", error=str(e))
 
     if not reply and nvidia_key:
         try:
             nvidia_url = app.config.get('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1')
+            nvidia_model = app.config.get('NVIDIA_MODEL', 'meta/llama-3.1-8b-instruct')
             headers = {"Authorization": f"Bearer {nvidia_key}", "Content-Type": "application/json"}
             payload = {
-                "model": "meta/llama-3.1-8b-instruct",
+                "model": nvidia_model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_msg}
@@ -420,12 +582,22 @@ def api_chat():
                 "temperature": 0.7,
                 "max_tokens": 350
             }
-            resp = httpx.post(f"{nvidia_url}/chat/completions", headers=headers, json=payload, timeout=5.0)
+            resp = httpx.post(f"{nvidia_url}/chat/completions", headers=headers, json=payload, timeout=8.0)
             if resp.status_code == 200:
                 reply = resp.json()['choices'][0]['message']['content'].strip()
-                logger.info(f"NVIDIA NIM AI Response generated successfully for query '{user_msg}'")
+                logger.info("nvidia_api_success", query=user_msg[:50])
+            elif resp.status_code == 403:
+                logger.warning("nvidia_api_403", model=nvidia_model)
+                # Try fallback model
+                fallback_model = "meta/llama-3.1-8b-instruct"
+                if nvidia_model != fallback_model:
+                    payload["model"] = fallback_model
+                    resp = httpx.post(f"{nvidia_url}/chat/completions", headers=headers, json=payload, timeout=8.0)
+                    if resp.status_code == 200:
+                        reply = resp.json()['choices'][0]['message']['content'].strip()
+                        logger.info("nvidia_api_fallback_success", model=fallback_model)
         except Exception as e:
-            logger.warning(f"NVIDIA NIM call timeout/error: {e}")
+            logger.warning("nvidia_api_error", error=str(e))
 
     # 5. Smart Intent Synthesizer Fallback (Guarantees Instant, High-Quality Answers)
     if not reply:
@@ -475,15 +647,24 @@ def api_chat():
 
     return jsonify({'reply': reply, 'matched_products': [p.to_dict() for p in matched_prods]})
 
+
 @app.route('/logout')
 def logout():
+    user_id = session.get('user_id')
+    if user_id:
+        logger.info("user_logout", user_id=user_id)
     session.clear()
     flash("You have been logged out.", "success")
     return redirect(url_for('index'))
 
-# --- EVENT TRACKING API ---
+
+# =============================================================================
+# EVENT TRACKING API
+# =============================================================================
 
 @app.route('/api/events/batch', methods=['POST'])
+@limiter.limit("100 per minute")
+@csrf.exempt
 def track_events_batch():
     """Non-blocking API endpoint receiving batched frontend behavioral events."""
     data = request.get_json(silent=True) or {}
@@ -507,19 +688,24 @@ def track_events_batch():
             db.session.add(event_obj)
             saved_count += 1
         except Exception as e:
-            logger.error(f"Error parsing tracked event: {e}")
+            logger.error("event_parsing_error", error=str(e))
 
     try:
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Failed to commit events batch: {e}")
+        logger.error("events_batch_commit_error", error=str(e))
 
     return jsonify({'status': 'success', 'saved_count': saved_count})
 
-# --- RECOMMENDATION ENGINE API ---
+
+# =============================================================================
+# RECOMMENDATION ENGINE API
+# =============================================================================
 
 @app.route('/api/recommendations/refresh', methods=['POST'])
+@limiter.limit("10 per minute")
+@csrf.exempt
 def refresh_recommendations():
     """Explicitly triggers Recommendation Engine refresh for active user."""
     current_user = get_current_user()
@@ -551,12 +737,20 @@ def refresh_recommendations():
         db.session.add(rec_record)
         db.session.commit()
 
+        # Invalidate cache and set new recommendation
+        cache_service.invalidate_recommendation(current_user.id)
+        cache_service.set_recommendation(current_user.id, res, ttl=Config.RECOMMENDATION_TTL_SECONDS)
+
+        logger.info("recommendation_refreshed", user_id=current_user.id, trace_id=res.get('trace_id'))
         return jsonify({'status': 'success', 'recommendation': res})
     except Exception as e:
-        logger.error(f"Recommendation refresh error: {e}")
+        logger.error("recommendation_refresh_error", error=str(e), user_id=current_user.id)
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# --- ADMIN STUDENT MONITORING & CONTROL PANEL ---
+
+# =============================================================================
+# ADMIN STUDENT MONITORING & CONTROL PANEL
+# =============================================================================
 
 @app.route('/admin')
 @app.route('/admin/students')
@@ -566,18 +760,30 @@ def admin_students():
         flash("Admin permissions required to access student portal.", "error")
         return redirect(url_for('login'))
 
-    # Fetch all registered student users (excluding admin)
+    # Fetch all registered student users (excluding admin) with eager loading
     students = User.query.filter(User.role != 'admin').order_by(User.created_at.desc()).all()
     
+    # Get all enrollments and event counts in bulk to avoid N+1
+    student_ids = [s.id for s in students]
+    enrollments = Enrollment.query.filter(Enrollment.user_id.in_(student_ids)).all() if student_ids else []
+    event_counts = db.session.query(Event.user_id, db.func.count(Event.id)).filter(
+        Event.user_id.in_(student_ids)
+    ).group_by(Event.user_id).all() if student_ids else []
+    
+    enrollment_map = {}
+    for e in enrollments:
+        enrollment_map.setdefault(e.user_id, []).append(e)
+    
+    event_count_map = {user_id: count for user_id, count in event_counts}
+
     student_list = []
     for s in students:
-        enrolled_courses = [e.product for e in s.enrollments if e.product]
-        event_count = Event.query.filter_by(user_id=s.id).count()
+        enrolled_courses = [e.product for e in enrollment_map.get(s.id, []) if e.product]
         student_list.append({
             'user': s,
             'enrolled_courses': enrolled_courses,
             'enrolled_count': len(enrolled_courses),
-            'event_count': event_count
+            'event_count': event_count_map.get(s.id, 0)
         })
 
     return render_template(
@@ -587,7 +793,9 @@ def admin_students():
         current_user=get_current_user()
     )
 
+
 @app.route('/admin/student/delete/<int:user_id>', methods=['POST'])
+@csrf.exempt
 def admin_delete_student(user_id):
     """Admin Action: Delete a student account."""
     if not is_admin():
@@ -602,9 +810,13 @@ def admin_delete_student(user_id):
     db.session.delete(student)
     db.session.commit()
     flash(f"Student account '{student.email}' removed successfully.", "success")
+    logger.info("admin_delete_student", admin_id=get_current_user().id, deleted_user_id=user_id)
     return redirect(url_for('admin_students'))
 
-# --- ADMIN CATALOG MANAGEMENT (DUAL-WRITE) ---
+
+# =============================================================================
+# ADMIN CATALOG MANAGEMENT (DUAL-WRITE)
+# =============================================================================
 
 @app.route('/admin/catalog')
 def admin_catalog():
@@ -622,7 +834,9 @@ def admin_catalog():
         current_user=get_current_user()
     )
 
+
 @app.route('/admin/product/save', methods=['POST'])
+@csrf.exempt
 def admin_save_product():
     if not is_admin():
         flash("Admin permissions required.", "error")
@@ -635,6 +849,11 @@ def admin_save_product():
     price = float(request.form.get('price', 0.0))
     rating = float(request.form.get('rating', 4.8))
     tags = request.form.get('tags', '').strip()
+
+    # Input validation
+    if not title or not category or not description:
+        flash("Title, category, and description are required.", "error")
+        return redirect(url_for('admin_catalog'))
 
     if product_id and product_id.isdigit():
         # Update existing product in SQL Database
@@ -649,6 +868,7 @@ def admin_save_product():
             product.updated_at = datetime.utcnow()
             db.session.commit()
             flash(f"Success: Product #{product.id} ('{product.title}') updated in SQL Database.", "success")
+            logger.info("product_updated", product_id=product.id, admin_id=get_current_user().id)
         else:
             flash(f"Error: Product #{product_id} not found.", "error")
             return redirect(url_for('admin_catalog'))
@@ -665,6 +885,7 @@ def admin_save_product():
         db.session.add(product)
         db.session.commit()
         flash(f"Success: New Product #{product.id} ('{product.title}') created in SQL Database.", "success")
+        logger.info("product_created", product_id=product.id, admin_id=get_current_user().id)
 
     # DUAL-WRITE OPERATION: Synchronize immediately to ChromaDB Vector Store
     vector_success = vector_store.add_or_update_product(product.to_dict())
@@ -675,7 +896,9 @@ def admin_save_product():
 
     return redirect(url_for('admin_catalog'))
 
+
 @app.route('/admin/product/delete/<int:product_id>', methods=['POST'])
+@csrf.exempt
 def admin_delete_product(product_id):
     if not is_admin():
         flash("Admin permissions required.", "error")
@@ -695,11 +918,16 @@ def admin_delete_product(product_id):
     else:
         flash(f"Deleted '{title}' from SQL DB.", "success")
 
+    logger.info("product_deleted", product_id=product_id, admin_id=get_current_user().id)
     return redirect(url_for('admin_catalog'))
 
-# --- ADMIN POWER COMMANDS (EVENTS & TRACES CLEARING) ---
+
+# =============================================================================
+# ADMIN POWER COMMANDS (EVENTS & TRACES CLEARING)
+# =============================================================================
 
 @app.route('/admin/events/clear', methods=['POST'])
+@csrf.exempt
 def admin_clear_events():
     if not is_admin():
         flash("Admin permissions required.", "error")
@@ -708,9 +936,12 @@ def admin_clear_events():
     Event.query.delete()
     db.session.commit()
     flash("Admin Power Command: All behavioral event stream logs cleared.", "success")
+    logger.info("admin_clear_events", admin_id=get_current_user().id)
     return redirect(url_for('admin_events'))
 
+
 @app.route('/admin/traces/clear', methods=['POST'])
+@csrf.exempt
 def admin_clear_traces():
     if not is_admin():
         flash("Admin permissions required.", "error")
@@ -719,9 +950,13 @@ def admin_clear_traces():
     from agent.observability import AGENT_TRACES
     AGENT_TRACES.clear()
     flash("Admin Power Command: All agent execution trace logs cleared.", "success")
+    logger.info("admin_clear_traces", admin_id=get_current_user().id)
     return redirect(url_for('admin_traces'))
 
-# --- ADMIN OBSERVABILITY & BEHAVIOR ROUTES ---
+
+# =============================================================================
+# ADMIN OBSERVABILITY & BEHAVIOR ROUTES
+# =============================================================================
 
 @app.route('/admin/events')
 def admin_events():
@@ -732,6 +967,7 @@ def admin_events():
     events = Event.query.order_by(Event.timestamp.desc()).limit(100).all()
     return render_template('admin_events.html', events=events, current_user=get_current_user())
 
+
 @app.route('/admin/traces')
 def admin_traces():
     if not is_admin():
@@ -741,7 +977,10 @@ def admin_traces():
     traces = get_all_traces()
     return render_template('admin_agent_traces.html', traces=traces, current_user=get_current_user())
 
-# --- PROACTIVE DELIVERY DIGESTS ---
+
+# =============================================================================
+# PROACTIVE DELIVERY DIGESTS
+# =============================================================================
 
 @app.route('/digests')
 def digests():
@@ -752,6 +991,7 @@ def digests():
     # Student views their personal received email digests
     user_digests = DigestLog.query.filter_by(user_id=current_user.id).order_by(DigestLog.sent_at.desc()).all()
     return render_template('digests.html', digests=user_digests, current_user=current_user)
+
 
 @app.route('/admin/digests')
 def admin_digests():
@@ -787,7 +1027,9 @@ def admin_digests():
         current_user=get_current_user()
     )
 
+
 @app.route('/admin/digests/trigger_all', methods=['POST'])
+@csrf.exempt
 def admin_trigger_all_digests():
     if not is_admin():
         flash("Admin permissions required.", "error")
@@ -796,12 +1038,16 @@ def admin_trigger_all_digests():
     try:
         generate_proactive_digests_job(app)
         flash("⚡ 1-CLICK SUCCESS: Personalized AI Email Digests sent to ALL regular learners based on their individual behavioral demands!", "success")
+        logger.info("admin_trigger_all_digests", admin_id=get_current_user().id)
     except Exception as e:
         flash(f"Digest batch execution failed: {e}", "error")
+        logger.error("admin_trigger_all_digests_error", error=str(e))
 
     return redirect(url_for('admin_digests'))
 
+
 @app.route('/admin/digests/trigger_user/<int:user_id>', methods=['POST'])
+@csrf.exempt
 def admin_trigger_user_digest(user_id):
     if not is_admin():
         flash("Admin permissions required.", "error")
@@ -817,7 +1063,13 @@ def admin_trigger_user_digest(user_id):
 
     return redirect(url_for('admin_digests'))
 
+
+# Initialize Flask-Migrate
+from flask_migrate import Migrate
+migrate = Migrate(app, db)
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    logger.info(f"Starting SmartReco platform on http://127.0.0.1:{port}")
-    app.run(host='0.0.0.0', port=port, debug=True)
+    logger.info("starting_smartreco", port=port, env=Config.FLASK_ENV)
+    app.run(host='0.0.0.0', port=port, debug=Config.DEBUG)

@@ -40,6 +40,7 @@
             </div>
             
             <form method="POST" action="/enroll/{{ product.id }}" style="margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" id="enrollBtn" class="btn btn-primary" style="padding: 0.8rem 1.8rem; font-size: 1rem;">
                     Enroll Now ✨
                 </button>

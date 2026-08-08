@@ -38,6 +38,26 @@ class FastLightweightEmbeddingFunction:
             norm = math.sqrt(sum(v * v for v in vec)) or 1.0
             embeddings.append([v / norm for v in vec])
         return embeddings
+    
+    def embed_query(self, texts=None, input=None):
+        """Embed query text(s). ChromaDB passes a list of strings."""
+        if input is not None:
+            texts = input
+        if texts is None:
+            texts = []
+        if isinstance(texts, str):
+            texts = [texts]
+        return self.__call__(texts)
+    
+    def embed_documents(self, texts=None, input=None):
+        """Embed multiple documents."""
+        if input is not None:
+            texts = input
+        if texts is None:
+            texts = []
+        if isinstance(texts, str):
+            texts = [texts]
+        return self.__call__(texts)
 
 class VectorStoreManager:
     """

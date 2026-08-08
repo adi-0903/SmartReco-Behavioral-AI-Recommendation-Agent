@@ -12,6 +12,7 @@
     </div>
     
     <form method="POST" action="/admin/digests/trigger_all">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-primary" style="padding: 0.7rem 1.4rem; font-size: 0.95rem;">
             ⚡ Trigger Personalized Digests for ALL Users (1-Click)
         </button>
@@ -48,6 +49,7 @@
                 </td>
                 <td>
                     <form method="POST" action="/admin/digests/trigger_user/{{ u_info.user.id }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
                             📩 Send Personalized Digest
                         </button>

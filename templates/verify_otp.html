@@ -60,6 +60,7 @@
         </div>
 
         <form method="POST" action="/verify_otp" id="otpForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label class="form-label">6-Digit Passcode</label>
                 <input type="text" name="otp_code" id="otpInput" class="form-input" 

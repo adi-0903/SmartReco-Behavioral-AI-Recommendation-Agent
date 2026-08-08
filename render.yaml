@@ -8,12 +8,24 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: FLASK_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MESH_API_KEY
+        sync: false
+      - key: MESH_BASE_URL
+        value: https://api.meshapi.ai/v1
+      - key: MESH_MODEL
+        value: openai/gpt-4o
       - key: NVIDIA_API_KEY
         sync: false
       - key: NVIDIA_BASE_URL
         value: https://integrate.api.nvidia.com/v1
       - key: NVIDIA_MODEL
-        value: meta/llama-3.1-70b-instruct
+        value: meta/llama-3.1-8b-instruct
       - key: MAIL_SERVER
         value: smtp.gmail.com
       - key: MAIL_PORT
@@ -22,5 +34,19 @@ services:
         sync: false
       - key: MAIL_PASSWORD
         sync: false
-      - key: SECRET_KEY
-        generateValue: true
+      - key: MAIL_DEFAULT_SENDER
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RATELIMIT_STORAGE_URL
+        sync: false
+      - key: RATELIMIT_DEFAULT
+        value: "200 per minute"
+      - key: DATABASE_URL
+        sync: false
+      - key: SCHEDULER_INTERVAL_MINUTES
+        value: "60"

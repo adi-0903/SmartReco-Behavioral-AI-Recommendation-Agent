@@ -41,6 +41,17 @@ def get_llm_client():
     base_url = os.environ.get("MESH_BASE_URL") or "https://api.meshapi.ai/v1"
     return OpenAI(base_url=base_url, api_key=mesh_key or "rsk_placeholder")
 
+
+def supports_json_mode(model_name: str) -> bool:
+    """Check if model supports JSON response format."""
+    json_supported_models = [
+        "gpt-4", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo",
+        "openai/gpt-4o", "openai/gpt-4-turbo", "openai/gpt-3.5-turbo",
+    ]
+    model_lower = model_name.lower()
+    return any(supported in model_lower for supported in json_supported_models)
+
+
 class AgenticRecommendationEngine:
     def __init__(self):
         mesh_key = os.environ.get("MESH_API_KEY") or getattr(Config, "MESH_API_KEY", "")
@@ -51,20 +62,29 @@ class AgenticRecommendationEngine:
 
     def analyze_behavior(self, events: List[Dict[str, Any]]) -> tuple[str, str, Dict[str, Any]]:
         """
-        Node 1: Weighted Student Intent Profiling.
+        Node 1: Weighted Student Intent Profiling with Recency Decay.
         Calculates category & topic weights based on explicit user action signals:
-          - search: +5 points
+          - search: +5 points (recent searches weighted higher)
           - product_view: +3 points
           - dwell_time: +1 point per 10s spent
           - category_filter: +2 points
+          - click_recommendation: +4 points (strong intent signal)
+          - enroll_click: +5 points (strongest intent)
+        Applies exponential time decay (half-life: 24 hours) to older events.
         """
         if not events:
             return "General discovery and trending courses", "popular trending software development courses", {'top_category': 'Generative AI & Agents'}
 
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        half_life_hours = 24
+        
         searches = []
         viewed_titles = []
         category_weights = {}
+        topic_weights = {}
         total_dwell_ms = 0
+        event_recency_scores = []
         
         for ev in events:
             ev_type = ev.get('event_type')
@@ -72,33 +92,73 @@ class AgenticRecommendationEngine:
             duration = ev.get('duration_ms', 0)
             total_dwell_ms += duration
             
-            # Helper to add weights to categories
-            def add_cat_weight(cat, weight):
+            # Calculate recency decay factor
+            ev_timestamp = ev.get('timestamp')
+            if ev_timestamp:
+                try:
+                    if isinstance(ev_timestamp, str):
+                        ev_time = datetime.fromisoformat(ev_timestamp.replace('Z', '+00:00'))
+                    else:
+                        ev_time = ev_timestamp
+                    hours_ago = (now - ev_time).total_seconds() / 3600
+                    decay_factor = 2 ** (-hours_ago / half_life_hours)
+                except Exception:
+                    decay_factor = 0.5
+            else:
+                decay_factor = 0.5
+            
+            event_recency_scores.append(decay_factor)
+            
+            # Helper to add weights to categories with recency decay
+            def add_cat_weight(cat, base_weight):
                 if cat and cat != 'All':
-                    category_weights[cat] = category_weights.get(cat, 0) + weight
+                    weighted = base_weight * decay_factor
+                    category_weights[cat] = category_weights.get(cat, 0) + weighted
+            
+            # Helper to add topic weights from search queries
+            def add_topic_weight(topic, base_weight):
+                if topic:
+                    weighted = base_weight * decay_factor
+                    topic_weights[topic] = topic_weights.get(topic, 0) + weighted
 
             if ev_type == 'search' and details.get('query'):
                 query = details.get('query').strip()
                 searches.append(query)
                 
-                # Check if search query matches known categories or keywords
+                # Enhanced keyword-based category detection
                 query_lower = query.lower()
-                if 'hack' in query_lower or 'sec' in query_lower or 'cyber' in query_lower or 'vuln' in query_lower or 'pentest' in query_lower:
-                    add_cat_weight('Cybersecurity', 6)
-                elif 'agent' in query_lower or 'lang' in query_lower or 'rag' in query_lower or 'ai' in query_lower:
-                    add_cat_weight('Generative AI & Agents', 6)
-                elif 'web' in query_lower or 'next' in query_lower or 'react' in query_lower or 'flask' in query_lower:
-                    add_cat_weight('Web Development & Fullstack', 6)
-                elif 'cloud' in query_lower or 'devops' in query_lower or 'aws' in query_lower or 'k8s' in query_lower:
-                    add_cat_weight('Cloud & DevOps', 6)
-                elif 'data' in query_lower or 'spark' in query_lower or 'ml' in query_lower or 'torch' in query_lower:
-                    add_cat_weight('Data Science & Machine Learning', 6)
+                keywords = query_lower.split()
+                
+                # Category detection with keyword scoring
+                cat_scores = {
+                    'Cybersecurity': ['hack', 'sec', 'cyber', 'vuln', 'pentest', 'exploit', 'malware', 'phish', 'ransom', 'soc', 'threat', 'bug bounty', 'owasp'],
+                    'Generative AI & Agents': ['agent', 'lang', 'rag', 'ai', 'llm', 'gpt', 'claude', 'gemini', 'prompt', 'fine-tun', 'lora', 'qlora', 'vector', 'embedding', 'multimodal', 'vlm'],
+                    'Web Development & Fullstack': ['web', 'next', 'react', 'flask', 'fastapi', 'django', 'vue', 'angular', 'typescript', 'tailwind', 'css', 'html', 'frontend', 'backend', 'api', 'graphql', 'rest'],
+                    'Cloud & DevOps': ['cloud', 'devops', 'aws', 'k8s', 'kubernetes', 'docker', 'terraform', 'ansible', 'ci/cd', 'jenkins', 'github action', 'gitlab', 'helm', 'argo', 'prometheus', 'grafana', 'sre', 'observability'],
+                    'Data Science & Machine Learning': ['data', 'spark', 'ml', 'torch', 'tensor', 'pytorch', 'tensorflow', 'sklearn', 'xgboost', 'pandas', 'numpy', 'mlops', 'feature', 'drift', 'forecast', 'time series', 'nlp', 'bert', 'transformer'],
+                }
+                
+                for cat, kw_list in cat_scores.items():
+                    score = sum(1 for kw in kw_list if kw in query_lower)
+                    if score > 0:
+                        add_cat_weight(cat, 5 * score)
+                
+                # Track individual topics
+                for kw in keywords:
+                    if len(kw) > 3:
+                        add_topic_weight(kw, 2)
 
             elif ev_type == 'product_view':
                 if details.get('product_title'):
                     viewed_titles.append(details.get('product_title'))
                 if details.get('category'):
                     add_cat_weight(details.get('category'), 3)
+                
+                # Extract topics from product title
+                title = details.get('product_title', '').lower()
+                for kw in title.split():
+                    if len(kw) > 4:
+                        add_topic_weight(kw, 1)
 
             elif ev_type == 'dwell_time':
                 if details.get('category'):
@@ -110,8 +170,21 @@ class AgenticRecommendationEngine:
                 if details.get('category'):
                     add_cat_weight(details.get('category'), 2)
 
+            elif ev_type == 'click_recommendation':
+                if details.get('category'):
+                    add_cat_weight(details.get('category'), 4)
+                if details.get('product_title'):
+                    add_topic_weight(details.get('product_title', '').lower().split()[0] if details.get('product_title') else '', 3)
+
+            elif ev_type == 'enroll_click':
+                if details.get('category'):
+                    add_cat_weight(details.get('category'), 5)
+                if details.get('product_title'):
+                    add_topic_weight(details.get('product_title', '').lower().split()[0] if details.get('product_title') else '', 4)
+
         # Determine primary top category
         top_category = max(category_weights, key=category_weights.get) if category_weights else None
+        top_topic = max(topic_weights, key=topic_weights.get) if topic_weights else None
         
         intent_parts = []
         if searches:
@@ -120,17 +193,25 @@ class AgenticRecommendationEngine:
             intent_parts.append(f"Explored: '{', '.join(viewed_titles[-3:])}'")
         if top_category:
             intent_parts.append(f"Primary focus interest: {top_category}")
+        if top_topic:
+            intent_parts.append(f"Key topic: {top_topic}")
         if total_dwell_ms > 0:
             intent_parts.append(f"Dwell engagement: {round(total_dwell_ms/1000, 1)}s")
-
+        
+        # Calculate engagement level
+        avg_recency = sum(event_recency_scores) / len(event_recency_scores) if event_recency_scores else 0
+        engagement_level = "high" if avg_recency > 0.5 else "medium" if avg_recency > 0.2 else "low"
+        
         intent_summary = " | ".join(intent_parts) if intent_parts else "Catalog browsing"
         
         # Build search query for vector retrieval
         search_query_elements = []
         if searches:
-            search_query_elements.extend(searches)
+            search_query_elements.extend(searches[-3:])  # Recent searches weighted more
         if top_category:
             search_query_elements.append(top_category)
+        if top_topic:
+            search_query_elements.append(top_topic)
 
         search_query = " ".join(search_query_elements) if search_query_elements else "top rated courses"
         
@@ -138,8 +219,13 @@ class AgenticRecommendationEngine:
             'search_count': len(searches),
             'views_count': len(viewed_titles),
             'top_category': top_category,
-            'category_weights': category_weights,
-            'dwell_seconds': round(total_dwell_ms / 1000, 1)
+            'top_topic': top_topic,
+            'category_weights': {k: round(v, 2) for k, v in category_weights.items()},
+            'topic_weights': {k: round(v, 2) for k, v in topic_weights.items()},
+            'dwell_seconds': round(total_dwell_ms / 1000, 1),
+            'engagement_level': engagement_level,
+            'avg_recency_score': round(avg_recency, 3),
+            'total_events': len(events)
         }
         return intent_summary, search_query, stats
 
@@ -268,18 +354,22 @@ Output strictly as a valid JSON object matching this structure:
         client = get_llm_client()
         narrative = ""
         recommended_ids = [c['id'] for c in candidates[:3]]
+        use_json_mode = supports_json_mode(self.model_name)
 
         try:
             try:
-                response = client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[
+                kwargs = {
+                    "model": self.model_name,
+                    "messages": [
                         {"role": "system", "content": "You are SmartReco, a behavioral AI recommendation engine. Always output valid JSON."},
                         {"role": "user", "content": prompt}
                     ],
-                    temperature=0.7,
-                    response_format={"type": "json_object"}
-                )
+                    "temperature": 0.7,
+                }
+                if use_json_mode:
+                    kwargs["response_format"] = {"type": "json_object"}
+                
+                response = client.chat.completions.create(**kwargs)
             except Exception as ex1:
                 logger.info(f"Retrying LLM call without response_format flag: {ex1}")
                 response = client.chat.completions.create(
@@ -304,7 +394,7 @@ Output strictly as a valid JSON object matching this structure:
                     recommended_ids = valid_ids
                     
         except Exception as e:
-            logger.warning(f"Mesh API call notice: {e}. Utilizing fallback agent persona generation.")
+            logger.warning(f"LLM call failed: {e}. Utilizing fallback agent persona generation.")
             top_titles = [c['title'] for c in candidates[:2]]
             title_str = " and ".join(top_titles) if top_titles else f"our featured {top_cat} masterclasses"
             
