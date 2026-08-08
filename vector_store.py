@@ -31,17 +31,28 @@ def _get_sentence_transformer():
         _SENTENCE_TRANSFORMERS_AVAILABLE = False
         return None
 
-# Check for FAISS availability
+# Check for FAISS availability - defer import to runtime
 _FAISS_AVAILABLE = False
-try:
-    import faiss
-    _FAISS_AVAILABLE = True
-except (ImportError, AttributeError) as e:
-    if "_ARRAY_API" in str(e):
-        logger.warning("FAISS not compatible with NumPy 2.x, using ChromaDB only")
-    else:
-        logger.warning(f"FAISS not available: {e}. Using ChromaDB only")
-    faiss = None
+faiss = None
+
+def _check_faiss():
+    """Check FAISS availability at runtime."""
+    global _FAISS_AVAILABLE, faiss
+    if _FAISS_AVAILABLE:
+        return True
+    try:
+        import faiss as faiss_module
+        faiss = faiss_module
+        _FAISS_AVAILABLE = True
+        return True
+    except (ImportError, AttributeError) as e:
+        if "_ARRAY_API" in str(e):
+            logger.warning("FAISS not compatible with NumPy 2.x, using ChromaDB only")
+        else:
+            logger.warning(f"FAISS not available: {e}. Using ChromaDB only")
+        faiss = None
+        _FAISS_AVAILABLE = False
+        return False
 
 
 class FastLightweightEmbeddingFunction:
@@ -185,11 +196,10 @@ class FAISSIndexManager:
         self._init_index()
     
     def _init_index(self):
-        if not _FAISS_AVAILABLE:
+        if not _check_faiss():
             logger.warning("FAISS not available, skipping FAISS index")
             return
         try:
-            import faiss
             if self.index_type == "IVF_FLAT":
                 quantizer = faiss.IndexFlatIP(self.dimension)
                 self.index = faiss.IndexIVFFlat(quantizer, self.dimension, self.nlist, faiss.METRIC_INNER_PRODUCT)
@@ -208,10 +218,9 @@ class FAISSIndexManager:
     
     def train(self, embeddings: np.ndarray):
         """Train the index (required for IVF indices)."""
-        if not self._available:
+        if not self._available or not _check_faiss():
             return False
         try:
-            import faiss
             if not self.index.is_trained:
                 logger.info(f"Training FAISS index with {len(embeddings)} vectors")
                 self.index.train(embeddings.astype(np.float32))
@@ -223,10 +232,9 @@ class FAISSIndexManager:
     
     def add(self, embeddings: np.ndarray, ids: List[int]):
         """Add vectors to index."""
-        if not self._available:
+        if not self._available or not _check_faiss():
             return
         try:
-            import faiss
             embeddings = embeddings.astype(np.float32)
             start_idx = self.index.ntotal
             self.index.add(embeddings)
@@ -239,10 +247,9 @@ class FAISSIndexManager:
     
     def search(self, query_embedding: np.ndarray, top_k: int = 10) -> Tuple[np.ndarray, np.ndarray]:
         """Search for similar vectors."""
-        if not self._available:
+        if not self._available or not _check_faiss():
             return np.array([]), np.array([])
         try:
-            import faiss
             query_embedding = query_embedding.astype(np.float32).reshape(1, -1)
             distances, indices = self.index.search(query_embedding, top_k)
             return distances[0], indices[0]
@@ -261,10 +268,9 @@ class FAISSIndexManager:
     
     def save(self, path: str):
         """Save index to disk."""
-        if not self._available:
+        if not self._available or not _check_faiss():
             return
         try:
-            import faiss
             faiss.write_index(self.index, f"{path}.faiss")
             with open(f"{path}.mapping", "wb") as f:
                 pickle.dump({"id_to_idx": self.id_to_idx, "idx_to_id": self.idx_to_id}, f)
@@ -273,10 +279,9 @@ class FAISSIndexManager:
     
     def load(self, path: str):
         """Load index from disk."""
-        if not _FAISS_AVAILABLE:
+        if not _check_faiss():
             return
         try:
-            import faiss
             self.index = faiss.read_index(f"{path}.faiss")
             with open(f"{path}.mapping", "rb") as f:
                 mapping = pickle.load(f)
