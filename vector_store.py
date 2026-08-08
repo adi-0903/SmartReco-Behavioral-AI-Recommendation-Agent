@@ -36,8 +36,11 @@ _FAISS_AVAILABLE = False
 try:
     import faiss
     _FAISS_AVAILABLE = True
-except ImportError:
-    logger.warning("FAISS not available, using ChromaDB only")
+except (ImportError, AttributeError) as e:
+    if "_ARRAY_API" in str(e):
+        logger.warning("FAISS not compatible with NumPy 2.x, using ChromaDB only")
+    else:
+        logger.warning(f"FAISS not available: {e}. Using ChromaDB only")
     faiss = None
 
 
