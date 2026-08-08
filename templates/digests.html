@@ -3,43 +3,46 @@
 {% block title %}My Personal Email Notifications & Daily Digests — SmartReco{% endblock %}
 
 {% block content %}
-<div class="hero-banner" style="margin-bottom: 2.5rem; padding: 2rem;">
-    <h1 class="hero-title" style="font-size: 2.2rem;">My Personal Email Notifications &amp; Daily Digests</h1>
-    <p class="hero-subtitle">
+<div class="hero-banner reveal animate-in" style="margin-bottom: 2.5rem; padding: 3rem;">
+    <h1 class="hero-title gradient-text" style="font-size: clamp(2rem, 4vw, 2.5rem);">My Personal Email Notifications & Daily Digests</h1>
+    <p class="hero-subtitle reveal animate-in-delay-1">
         Proactive daily digest summaries generated specifically for your learning goals based on your recent searches, views, and dwell time.
     </p>
 </div>
 
 {% for log in digests %}
-    <div style="background: rgba(18, 24, 38, 0.85); border: 1px solid var(--border-accent); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-glow);">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.8rem; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.8rem;">
+    <div class="glass-card animated-border reveal" style="border-radius: var(--radius-xl); padding: 2rem; margin-bottom: 1.5rem; border: 1px solid var(--border-accent); box-shadow: var(--shadow-lg), var(--shadow-glow);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
             <div>
-                <div style="display: flex; align-items: center; gap: 0.6rem;">
-                    <span style="font-size: 1.2rem;">📩</span>
-                    <strong style="color: #fff; font-size: 1.15rem; font-family: 'Outfit', sans-serif;">{{ log.subject }}</strong>
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.5rem;" aria-hidden="true">📩</span>
+                    <strong style="color: var(--text-bright); font-size: 1.25rem; font-weight: 700;">{{ log.subject }}</strong>
                 </div>
-                <div style="color: var(--text-dim); font-size: 0.82rem; margin-top: 0.3rem;">
-                    Delivered to: <code style="color: var(--accent);">{{ log.recipient_email }}</code> • Date: {{ log.sent_at.strftime('%B %d, %Y at %H:%M:%S') }}
+                <div style="color: var(--text-dim); font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 1.5rem;">
+                    <span>Delivered to: <code style="color: var(--accent); font-family: var(--font-mono);">{{ log.recipient_email }}</code></span>
+                    <span>Date: <code style="color: var(--text-muted); font-family: var(--font-mono);">{{ log.sent_at.strftime('%B %d, %Y at %H:%M:%S') }}</code></span>
                 </div>
             </div>
             
-            <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.78rem; font-weight: 700;">
+            <span class="chip-btn" style="background: rgba(16, 185, 129, 0.15); border-color: var(--success); color: var(--success); font-size: 0.75rem; font-weight: 700;">
                 ✓ INBOX DELIVERED
             </span>
         </div>
 
-        <!-- Render HTML email body seamlessly -->
-        <div class="email-body-wrapper" style="width: 100%;">
+        <div class="email-body-wrapper" style="width: 100%; background: var(--bg-deep); border-radius: var(--radius-lg); padding: 1.5rem; border: 1px solid var(--border-color); overflow-x: auto;">
             {{ log.content_html | safe }}
         </div>
     </div>
 {% else %}
-    <div style="text-align: center; padding: 4rem 2rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
-        <div style="font-size: 3rem; margin-bottom: 1rem;">📬</div>
-        <h3 style="color: #fff; font-size: 1.4rem; margin-bottom: 0.5rem;">No Notification Digests Received Yet</h3>
-        <p style="color: var(--text-muted); max-width: 550px; margin: 0 auto;">
+    <div class="glass-card animated-border reveal animate-in" style="text-align: center; padding: 5rem 3rem; border-radius: var(--radius-xl); border: 1px dashed var(--border-color);">
+        <span style="font-size: 4.5rem; display: block; margin-bottom: 1.5rem;" aria-hidden="true">📬</span>
+        <h3 class="gradient-text" style="font-size: 1.75rem; font-weight: 700; margin-bottom: 1rem;">No Notification Digests Received Yet</h3>
+        <p style="color: var(--text-muted); max-width: 600px; margin: 0 auto 2rem; font-size: 1.05rem; line-height: 1.7;">
             Explore courses or perform searches on the marketplace! Our background AI agent will automatically generate and deliver custom email digests tailored to your learning goals.
         </p>
+        <a href="/" class="btn btn-primary btn-lg animated-border" data-magnetic>
+            <span aria-hidden="true">🔍</span> Browse Courses & Trigger Digests
+        </a>
     </div>
 {% endfor %}
 {% endblock %}

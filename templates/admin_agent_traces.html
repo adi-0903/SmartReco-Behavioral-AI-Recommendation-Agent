@@ -3,75 +3,79 @@
 {% block title %}Agent Traces & Observability — Admin Dashboard{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-    <div>
-        <h1>Agent Execution Traces &amp; Observability</h1>
-        <p style="color: var(--text-muted);">
-            End-to-end inspection of LangGraph decision nodes, vector retrieval scores, Mesh API prompts, and token latency.
-        </p>
-    </div>
-    
-    <span style="background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary); color: #818cf8; padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600;">
-        ⭐ LangGraph Observability Active
-    </span>
-</div>
+<div class="reveal animate-in" style="max-width: 1400px; margin: 0 auto; padding: 1rem 0;">
 
-{% for trace in traces %}
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.8rem; margin-bottom: 1rem;">
-            <div>
-                <strong style="color: var(--accent); font-size: 1.1rem;">Trace ID: {{ trace.trace_id }}</strong>
-                <span style="margin-left: 1rem; color: var(--text-dim); font-size: 0.85rem;">User #{{ trace.user_id }} • Trigger: <code>{{ trace.trigger_reason }}</code></span>
-            </div>
-            
-            <div>
-                <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">
-                    Status: {{ trace.status }}
-                </span>
-                <span style="margin-left: 0.5rem; color: var(--warning); font-size: 0.85rem; font-weight: 600;">
-                    ⚡ {{ trace.total_duration_ms }}ms
-                </span>
-            </div>
+    <div class="section-header reveal animate-in-delay-1">
+        <div>
+            <h1 class="section-title gradient-text" style="font-size: clamp(1.5rem, 3vw, 2rem);">🔍 Agent Execution Traces & Observability</h1>
+            <p class="section-subtitle">End-to-end inspection of LangGraph decision nodes, vector retrieval scores, Mesh API prompts, and token latency.</p>
         </div>
+        <span class="chip-btn" style="background: rgba(99, 102, 241, 0.2); border-color: var(--primary); color: var(--primary); font-size: 0.8rem; font-weight: 600;">
+            ⭐ LangGraph Observability Active
+        </span>
+    </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1rem;">
-            <div>
-                <h4 style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem;">User Intent Profile</h4>
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 0.8rem; border-radius: var(--radius-sm); font-size: 0.9rem; color: #e2e8f0;">
-                    {{ trace.intent_summary or 'Standard catalog discovery' }}
+    {% for trace in traces %}
+        <div class="glass-card animated-border reveal" style="border-radius: var(--radius-xl); padding: 2rem; margin-bottom: 1.5rem; border: 1px solid var(--border-accent); box-shadow: var(--shadow-lg), var(--shadow-glow);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <strong style="color: var(--accent); font-size: 1.15rem; font-family: var(--font-mono);">Trace ID: {{ trace.trace_id }}</strong>
+                    <span style="margin-left: 1.5rem; color: var(--text-dim); font-size: 0.85rem;">User <code style="color: var(--primary); font-family: var(--font-mono);">#{{ trace.user_id }}</code> • Trigger: <code>{{ trace.trigger_reason }}</code></span>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <span class="chip-btn" style="background: rgba(16, 185, 129, 0.2); border-color: var(--success); color: var(--success); font-size: 0.75rem; font-weight: 700;">
+                        Status: {{ trace.status }}
+                    </span>
+                    <span class="chip-btn" style="background: rgba(245, 158, 11, 0.2); border-color: var(--warning); color: var(--warning); font-size: 0.75rem; font-weight: 700;">
+                        ⚡ {{ trace.total_duration_ms }}ms
+                    </span>
                 </div>
             </div>
 
-            <div>
-                <h4 style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem;">Retrieved Vector Candidates</h4>
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 0.8rem; border-radius: var(--radius-sm); font-size: 0.85rem;">
-                    {% for c in trace.retrieved_candidates %}
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
-                            <span>#{{ c.id }} {{ c.title }}</span>
-                            <span style="color: var(--accent); font-weight: 600;">Match: {{ ((c.score or 0.85)*100)|round(1) }}%</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                <div class="glass-card" style="padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                    <h4 style="color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; font-weight: 600;">User Intent Profile</h4>
+                    <div style="background: var(--bg-deep); padding: 1rem; border-radius: var(--radius-md); font-size: 0.9rem; color: var(--text-main); border: 1px solid var(--border-color); min-height: 100px;">
+                        {{ trace.intent_summary or 'Standard catalog discovery' }}
+                    </div>
+                </div>
+
+                <div class="glass-card" style="padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                    <h4 style="color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; font-weight: 600;">Retrieved Vector Candidates</h4>
+                    <div style="background: var(--bg-deep); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; border: 1px solid var(--border-color); min-height: 100px;">
+                        {% for c in trace.retrieved_candidates %}
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                                <span style="color: var(--text-main);">#{{ c.id }} {{ c.title }}</span>
+                                <span style="color: var(--accent); font-weight: 700; font-family: var(--font-mono);">Match: {{ ((c.score or 0.85)*100)|round(1) }}%</span>
+                            </div>
+                        {% else %}
+                            <span style="color: var(--text-dim);">No candidates retrieved</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card" style="padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                <h4 style="color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; font-weight: 600;">Executed LangGraph Nodes</h4>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    {% for node in trace.nodes_executed %}
+                        <div class="chip-btn" style="background: var(--bg-card); border-color: var(--border-color); color: var(--text-main); font-size: 0.75rem; padding: 0.6rem 1rem; display: flex; flex-direction: column; gap: 0.25rem; min-width: 140px;">
+                            <strong style="color: var(--primary); font-size: 0.8rem;">{{ node.node }}</strong>
+                            <span style="color: var(--text-dim); font-size: 0.7rem; font-family: var(--font-mono);">{{ node.duration_ms }}ms</span>
                         </div>
-                    {% else %}
-                        <span style="color: var(--text-dim);">No candidates retrieved</span>
                     {% endfor %}
                 </div>
             </div>
         </div>
-
-        <div>
-            <h4 style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem;">Executed LangGraph Nodes</h4>
-            <div style="display: flex; gap: 0.8rem; flex-wrap: wrap;">
-                {% for node in trace.nodes_executed %}
-                    <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); padding: 0.5rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.8rem;">
-                        <strong style="color: var(--primary);">{{ node.node }}</strong>
-                        <span style="color: var(--text-dim); margin-left: 0.4rem;">({{ node.duration_ms }}ms)</span>
-                    </div>
-                {% endfor %}
-            </div>
+    {% else %}
+        <div class="glass-card animated-border reveal animate-in" style="text-align: center; padding: 5rem 3rem; border-radius: var(--radius-xl); border: 1px dashed var(--border-color);">
+            <span style="font-size: 4rem; display: block; margin-bottom: 1.5rem;" aria-hidden="true">🔍</span>
+            <h3 style="font-size: 1.5rem; color: var(--text-bright); margin-bottom: 0.75rem; font-weight: 700;">No Agent Execution Traces Recorded Yet</h3>
+            <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 2rem; line-height: 1.7;">
+                Traces will populate here when recommendations refresh! Click "🔄 Refresh Recommendation" on the catalog page to generate new agent traces.
+            </p>
         </div>
-    </div>
-{% else %}
-    <div style="text-align: center; padding: 3rem; background: var(--bg-card); border-radius: var(--radius-md);">
-        <p style="color: var(--text-muted);">No agent execution traces recorded yet. Traces will populate when recommendations refresh!</p>
-    </div>
-{% endfor %}
+    {% endfor %}
+</div>
 {% endblock %}

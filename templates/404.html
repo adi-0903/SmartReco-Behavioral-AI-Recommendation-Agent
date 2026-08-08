@@ -3,16 +3,28 @@
 {% block title %}Page Not Found — SmartReco{% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 4rem auto; text-align: center;">
-    <div style="font-size: 6rem; margin-bottom: 1rem;">🔍</div>
-    <h1 style="font-size: 2.5rem; margin-bottom: 1rem; background: linear-gradient(135deg, #6366f1, #38bdf8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
-        404 - Page Not Found
-    </h1>
-    <p style="color: var(--text-muted); font-size: 1.1rem; margin-bottom: 2rem;">
-        The page you're looking for doesn't exist or has been moved.
-    </p>
-    <a href="/" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-        ← Back to Home
-    </a>
+<div class="reveal animate-in" style="max-width: 600px; margin: 6rem auto; text-align: center;">
+    <div class="glass-card animated-border" style="border-radius: var(--radius-xl); padding: 4rem 3rem; border: 1px dashed var(--border-accent);" data-magnetic>
+        <div style="font-size: 7rem; margin-bottom: 1.5rem; animation: float 3s ease-in-out infinite;" aria-hidden="true">🔍</div>
+        <h1 class="gradient-text" style="font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 1.5rem; font-weight: 800;">404 - Page Not Found</h1>
+        <p style="color: var(--text-muted); font-size: 1.2rem; margin-bottom: 2.5rem; line-height: 1.7; max-width: 400px; margin-left: auto; margin-right: auto;">
+            The page you're looking for doesn't exist or has been moved. Don't worry, our AI can help you find what you need!
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <a href="/" class="btn btn-primary btn-lg animated-border" data-magnetic>
+                <span aria-hidden="true">🏠</span> Back to Home
+            </a>
+            <a href="/assistant" class="btn btn-secondary btn-lg animated-border" data-magnetic>
+                <span aria-hidden="true">🤖</span> Ask AI Assistant
+            </a>
+        </div>
+    </div>
 </div>
+
+<style>
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+</style>
 {% endblock %}

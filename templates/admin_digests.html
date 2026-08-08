@@ -3,91 +3,106 @@
 {% block title %}Admin Proactive Email Digest Control Portal — SmartReco{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
-    <div>
-        <h1>Admin Proactive Email Digest Control Portal</h1>
-        <p style="color: var(--text-muted);">
-            Manage user-wise behavioral data and trigger personalized AI email digests tailored to each user's unique interest profile.
-        </p>
+<div class="reveal animate-in" style="max-width: 1400px; margin: 0 auto; padding: 1rem 0;">
+
+    <div class="section-header reveal animate-in-delay-1">
+        <div>
+            <h1 class="section-title gradient-text" style="font-size: clamp(1.5rem, 3vw, 2rem);">📧 Admin Proactive Email Digest Control Portal</h1>
+            <p class="section-subtitle">Manage user-wise behavioral data and trigger personalized AI email digests tailored to each user's unique interest profile.</p>
+        </div>
+        <form method="POST" action="/admin/digests/trigger_all" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-lg animated-border" data-magnetic>
+                <span aria-hidden="true">⚡</span> Trigger Personalized Digests for ALL Users
+            </button>
+        </form>
     </div>
-    
-    <form method="POST" action="/admin/digests/trigger_all">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-primary" style="padding: 0.7rem 1.4rem; font-size: 0.95rem;">
-            ⚡ Trigger Personalized Digests for ALL Users (1-Click)
-        </button>
-    </form>
-</div>
 
-<!-- User-Wise Behavioral Summary Table -->
-<h3 style="margin-bottom: 1rem; font-size: 1.3rem;">Registered Learner Profiles &amp; Behavioral Data</h3>
-<table class="data-table" style="margin-bottom: 3rem;">
-    <thead>
-        <tr>
-            <th>User ID</th>
-            <th>Name &amp; Email</th>
-            <th>Total Events</th>
-            <th>Primary Interest Domain</th>
-            <th>Recent Search Terms</th>
-            <th>Admin Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for u_info in user_summaries %}
-            <tr>
-                <td>#{{ u_info.user.id }}</td>
-                <td>
-                    <strong>{{ u_info.user.name }}</strong>
-                    <div style="font-size: 0.8rem; color: var(--text-dim);">{{ u_info.user.email }}</div>
-                </td>
-                <td><span class="card-badge" style="position: static;">{{ u_info.event_count }} Signals</span></td>
-                <td>
-                    <strong style="color: var(--accent);">{{ u_info.top_category or 'General Discovery' }}</strong>
-                </td>
-                <td style="font-size: 0.85rem; color: var(--text-muted);">
-                    {{ u_info.recent_searches|join(', ') if u_info.recent_searches else 'None' }}
-                </td>
-                <td>
-                    <form method="POST" action="/admin/digests/trigger_user/{{ u_info.user.id }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
-                            📩 Send Personalized Digest
-                        </button>
-                    </form>
-                </td>
-            </tr>
+    <div class="glass-card animated-border reveal animate-in-delay-2" style="border-radius: var(--radius-xl); padding: 1.5rem; margin-bottom: 3rem; overflow: hidden;">
+        <h3 style="margin-bottom: 1.5rem; font-size: 1.3rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;"><span aria-hidden="true">👥</span> Registered Learner Profiles & Behavioral Data</h3>
+        
+        {% if user_summaries %}
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Name & Email</th>
+                            <th>Total Events</th>
+                            <th>Primary Interest Domain</th>
+                            <th>Recent Search Terms</th>
+                            <th>Admin Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u_info in user_summaries %}
+                            <tr style="transition: background var(--transition-fast);">
+                                <td><code style="color: var(--primary); font-family: var(--font-mono);">#{{ u_info.user.id }}</code></td>
+                                <td>
+                                    <strong style="color: var(--text-bright);">{{ u_info.user.name }}</strong>
+                                    <div style="font-size: 0.8rem; color: var(--text-dim); font-family: var(--font-mono); margin-top: 0.25rem;">{{ u_info.user.email }}</div>
+                                </td>
+                                <td><span class="chip-btn" style="font-size: 0.7rem;">{{ u_info.event_count }} Signals</span></td>
+                                <td>
+                                    <strong style="color: var(--accent);">{{ u_info.top_category or 'General Discovery' }}</strong>
+                                </td>
+                                <td style="font-size: 0.8rem; color: var(--text-muted); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {{ u_info.recent_searches|join(', ') if u_info.recent_searches else 'None' }}
+                                </td>
+                                <td>
+                                    <form method="POST" action="/admin/digests/trigger_user/{{ u_info.user.id }}" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-secondary btn-sm animated-border" data-magnetic>
+                                            <span aria-hidden="true">📩</span> Send Digest
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         {% else %}
-            <tr>
-                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No regular learners registered yet.</td>
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
+            <div style="text-align: center; padding: 3rem 2rem;">
+                <span style="font-size: 3rem; display: block; margin-bottom: 1rem;" aria-hidden="true">👥</span>
+                <h3 style="font-size: 1.25rem; color: var(--text-bright); margin-bottom: 0.5rem; font-weight: 700;">No Regular Learners Registered Yet</h3>
+                <p style="color: var(--text-muted); max-width: 400px; margin: 0 auto;">Students will appear here once they register and verify their email.</p>
+            </div>
+        {% endif %}
+    </div>
 
-<!-- Sent Digests Stream -->
-<h3 style="margin-bottom: 1.2rem; font-size: 1.3rem;">Sent Email Digest Logs</h3>
-{% for log in digest_logs %}
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.8rem; margin-bottom: 2rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.8rem;">
-            <div>
-                <strong style="color: var(--accent); font-size: 1.15rem; font-family: 'Outfit', sans-serif;">{{ log.subject }}</strong>
-                <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 0.2rem;">
-                    Recipient: <code>{{ log.recipient_email }}</code> • Sent at: {{ log.sent_at.strftime('%B %d, %Y at %H:%M:%S') }}
+    <div class="reveal animate-in-delay-3">
+        <h3 style="margin-bottom: 1.5rem; font-size: 1.3rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;"><span aria-hidden="true">📬</span> Sent Email Digest Logs</h3>
+        
+        {% for log in digest_logs %}
+            <div class="glass-card animated-border" style="border-radius: var(--radius-xl); padding: 2rem; margin-bottom: 1.5rem; border: 1px solid var(--border-accent); box-shadow: var(--shadow-lg), var(--shadow-glow);">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <strong style="color: var(--accent); font-size: 1.25rem; font-weight: 700;">{{ log.subject }}</strong>
+                        <div style="color: var(--text-dim); font-size: 0.85rem; margin-top: 0.3rem; display: flex; flex-wrap: wrap; gap: 1.5rem;">
+                            <span>Recipient: <code style="color: var(--text-muted); font-family: var(--font-mono);">{{ log.recipient_email }}</code></span>
+                            <span>Sent at: <code style="color: var(--text-muted); font-family: var(--font-mono);">{{ log.sent_at.strftime('%B %d, %Y at %H:%M:%S') }}</code></span>
+                        </div>
+                    </div>
+                    
+                    <span class="chip-btn" style="background: rgba(16, 185, 129, 0.15); border-color: var(--success); color: var(--success); font-size: 0.7rem; font-weight: 700;">
+                        Status: {{ log.status|upper }}
+                    </span>
+                </div>
+
+                <div class="email-body-wrapper" style="width: 100%; background: var(--bg-deep); border-radius: var(--radius-lg); padding: 1.5rem; border: 1px solid var(--border-color); overflow-x: auto;">
+                    {{ log.content_html | safe }}
                 </div>
             </div>
-            
-            <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">
-                Status: {{ log.status|upper }}
-            </span>
-        </div>
-
-        <div class="email-body-wrapper" style="width: 100%;">
-            {{ log.content_html | safe }}
-        </div>
+        {% else %}
+            <div class="glass-card animated-border" style="text-align: center; padding: 4rem 2rem; border-radius: var(--radius-xl); border: 1px dashed var(--border-color);">
+                <span style="font-size: 3.5rem; display: block; margin-bottom: 1.5rem;" aria-hidden="true">📬</span>
+                <h3 style="font-size: 1.5rem; color: var(--text-bright); margin-bottom: 0.75rem; font-weight: 700;">No Email Digests Sent Yet</h3>
+                <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 2rem; line-height: 1.7;">
+                    Click "⚡ Trigger Personalized Digests for ALL Users" to generate and send user digests based on their behavioral profiles!
+                </p>
+            </div>
+        {% endfor %}
     </div>
-{% else %}
-    <div style="text-align: center; padding: 3rem; background: var(--bg-card); border-radius: var(--radius-lg);">
-        <p style="color: var(--text-muted);">No email digests sent yet. Click "⚡ Trigger Personalized Digests for ALL Users" to generate user digests!</p>
-    </div>
-{% endfor %}
+</div>
 {% endblock %}

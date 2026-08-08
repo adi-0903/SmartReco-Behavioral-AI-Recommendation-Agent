@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function appendBubble(sender, text) {
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble ' + (sender === 'user' ? 'user-bubble' : 'bot-bubble');
+        bubble.style.animation = 'bubbleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
 
         const formattedContent = formatMarkdown(text);
 

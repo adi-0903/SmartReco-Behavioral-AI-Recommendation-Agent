@@ -3,26 +3,33 @@
 {% block title %}SmartReco — Online Learning Marketplace{% endblock %}
 
 {% block content %}
-<div class="hero-banner">
-    <h1 class="hero-title">Adaptive Behavioral AI Marketplace</h1>
-    <p class="hero-subtitle">
-        Explore advanced courses in AI, Fullstack, Cloud &amp; DevOps. As you browse, search, and engage, 
-        our agentic recommendation backend retrieves tailored products and crafts persuasive personalized guidance for your journey.
-    </p>
+<div class="hero-banner reveal animate-in" data-reveal-direction="up">
+    <div class="hero-content">
+        <h1 class="hero-title gradient-text">Adaptive Behavioral AI Marketplace</h1>
+        <p class="hero-subtitle reveal animate-in-delay-1">
+            Explore advanced courses in AI, Fullstack, Cloud & DevOps. As you browse, search, and engage, 
+            our agentic recommendation backend retrieves tailored products and crafts persuasive personalized guidance for your journey.
+        </p>
+        <div class="hero-actions reveal animate-in-delay-2">
+            <a href="/assistant" class="btn btn-primary btn-lg" data-magnetic>
+                <span aria-hidden="true">🤖</span> Try AI Assistant
+            </a>
+            <a href="#catalog" class="btn btn-secondary btn-lg">
+                <span aria-hidden="true">📚</span> Browse Catalog
+            </a>
+        </div>
+    </div>
 </div>
 
-<!-- Dynamic Agentic AI Recommendation Widget -->
-<div class="reco-widget" id="recoWidget">
+<div class="reco-widget reveal animate-in-delay-1" id="recoWidget" data-card-3d>
     <div class="reco-header">
         <div class="reco-title">
-            <span class="pulse-icon"></span>
+            <span class="pulse-ring" aria-hidden="true"></span>
             <strong>SmartReco AI Advisor</strong>
-            <span style="font-size: 0.8rem; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 0.2rem 0.5rem; border-radius: 12px;">
-                Adaptive Behavioral AI
-            </span>
+            <span class="ai-badge">Adaptive Behavioral AI</span>
         </div>
-        <button id="refreshRecoBtn" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.3rem 0.8rem;">
-            🔄 Refresh Recommendation
+        <button id="refreshRecoBtn" class="btn btn-secondary btn-sm" data-magnetic>
+            <span aria-hidden="true">🔄</span> Refresh Recommendation
         </button>
     </div>
 
@@ -35,11 +42,13 @@
     </div>
 
     {% if recommended_products %}
-        <div style="margin-top: 1rem;">
-            <h4 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">RECOMMENDED FOR YOUR JOURNEY:</h4>
-            <div class="product-grid">
+        <div class="recommended-section" style="margin-top: 1rem;">
+            <h4>RECOMMENDED FOR YOUR JOURNEY:</h4>
+            <div class="product-grid" data-stagger>
                 {% for prod in recommended_products %}
-                    <div class="product-card">
+                    <div class="product-card card-3d reveal" data-stagger-item data-card-3d
+                         data-reco-id="{{ recommendation.id if (recommendation and recommendation.id) else 0 }}"
+                         data-prod-id="{{ prod.id }}">
                         <div class="card-top-header">
                             <span class="card-badge">{{ prod.category }}</span>
                             <span class="rating-tag">★ {{ prod.rating }}</span>
@@ -48,7 +57,7 @@
                         <p class="card-desc">{{ prod.description }}</p>
                         <div class="card-footer">
                             <span class="price-tag">${{ prod.price }}</span>
-                            <a href="/product/{{ prod.id }}" class="btn btn-primary reco-click-btn" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;"
+                            <a href="/product/{{ prod.id }}" class="btn btn-primary reco-click-btn btn-sm" 
                                data-reco-id="{{ recommendation.id if (recommendation and recommendation.id) else 0 }}"
                                data-prod-id="{{ prod.id }}">
                                 View Course →
@@ -61,14 +70,15 @@
     {% endif %}
 </div>
 
-<!-- Catalog Filter and Search Bar -->
-<div class="filter-bar">
+<div class="filter-bar reveal animate-in-delay-2" role="search" aria-label="Course search and filter">
     <div class="search-box">
-        <input type="text" id="searchInput" class="form-input" placeholder="🔍 Search courses, skills, or topics (e.g. Cybersecurity, Agentic AI, Next.js)..." 
-               value="{{ search_query or '' }}">
+        <input type="text" id="searchInput" class="form-input" 
+               placeholder="Search courses, skills, or topics (e.g. Cybersecurity, Agentic AI, Next.js)..." 
+               value="{{ search_query or '' }}"
+               aria-label="Search courses">
     </div>
     
-    <select id="categorySelect" class="form-select" style="max-width: 240px;">
+    <select id="categorySelect" class="form-select" aria-label="Filter by category" style="max-width: 240px;">
         <option value="All" {% if selected_category == 'All' %}selected{% endif %}>All Categories</option>
         {% for cat in categories %}
             <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
@@ -76,15 +86,16 @@
     </select>
 </div>
 
-<!-- Main Catalog Grid -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
-    <h2>Course Catalog ({{ products|length }} Available)</h2>
-    <span style="color: var(--text-dim); font-size: 0.85rem;">Instant Search &amp; Matching Active</span>
+<div class="section-header reveal animate-in-delay-3" id="catalog">
+    <div>
+        <h2 class="section-title">Course Catalog</h2>
+        <p class="section-subtitle">{{ products|length }} Available • Instant Search & Matching Active</p>
+    </div>
 </div>
 
-<div class="product-grid" id="mainCatalogGrid" data-product-count="{{ products|length if products else 0 }}">
+<div class="product-grid" id="mainCatalogGrid" data-product-count="{{ products|length if products else 0 }}" data-stagger>
     {% for prod in products %}
-        <div class="product-card">
+        <div class="product-card card-3d reveal" data-stagger-item data-card-3d>
             <div class="card-top-header">
                 <span class="card-badge">{{ prod.category }}</span>
                 <span class="rating-tag">★ {{ prod.rating }}</span>
@@ -100,14 +111,16 @@
             
             <div class="card-footer">
                 <span class="price-tag">${{ prod.price }}</span>
-                <a href="/product/{{ prod.id }}" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
-                    View Course →
-                </a>
+                <a href="/product/{{ prod.id }}" class="btn btn-secondary btn-sm">View Course →</a>
             </div>
         </div>
     {% else %}
-        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: var(--bg-card); border-radius: var(--radius-md);">
-            <p style="color: var(--text-muted);">No products found matching your filter criteria.</p>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;" aria-hidden="true">🔍</div>
+            <p style="color: var(--text-muted); font-size: 1.1rem;">No products found matching your filter criteria.</p>
+            <button class="btn btn-primary mt-4" onclick="document.getElementById('searchInput').value=''; document.getElementById('categorySelect').value='All'; window.location.href='/'">
+                Clear Filters
+            </button>
         </div>
     {% endfor %}
 </div>
@@ -122,7 +135,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const catalogGrid = document.getElementById('mainCatalogGrid');
     const productCount = catalogGrid ? parseInt(catalogGrid.dataset.productCount, 10) : 0;
 
-    // Track recommendation clicks via data attributes
     const recoBtns = document.querySelectorAll('.reco-click-btn');
     recoBtns.forEach(btn => {
         btn.addEventListener('click', function() {
@@ -134,7 +146,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Debounced search input tracker
     let searchTimer;
     if (searchInput) {
         searchInput.addEventListener('input', function() {
@@ -152,7 +163,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Category filter tracker
     if (categorySelect) {
         categorySelect.addEventListener('change', function() {
             const cat = this.value;
@@ -164,11 +174,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Refresh Recommendation button
     if (refreshBtn) {
         refreshBtn.addEventListener('click', function() {
-            refreshBtn.innerText = "⏳ Generating AI Recommendation...";
-            refreshBtn.disabled = true;
+            const originalText = this.innerHTML;
+            this.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span> Generating AI Recommendation...';
+            this.disabled = true;
+            this.setAttribute('aria-busy', 'true');
             
             fetch('/api/recommendations/refresh', {
                 method: 'POST',
@@ -180,17 +191,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.status === 'success') {
                     window.location.reload();
                 } else {
-                    alert("Recommendation refresh failed: " + (data.message || 'Unknown error'));
-                    refreshBtn.innerText = "🔄 Refresh Recommendation";
-                    refreshBtn.disabled = false;
+                    if (window.SmartRecoUI) {
+                        SmartRecoUI.showToast("Recommendation refresh failed: " + (data.message || 'Unknown error'), 'error');
+                    } else {
+                        alert("Recommendation refresh failed: " + (data.message || 'Unknown error'));
+                    }
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                    this.removeAttribute('aria-busy');
                 }
             })
             .catch(err => {
                 console.error("Refresh error:", err);
-                refreshBtn.innerText = "🔄 Refresh Recommendation";
-                refreshBtn.disabled = false;
+                if (window.SmartRecoUI) {
+                    SmartRecoUI.showToast('Network error. Please try again.', 'error');
+                }
+                this.innerHTML = originalText;
+                this.disabled = false;
+                this.removeAttribute('aria-busy');
             });
         });
+    }
+
+    if (window.SmartRecoScroll) {
+        window.SmartRecoScroll.refresh();
     }
 });
 </script>

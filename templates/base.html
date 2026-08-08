@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,50 +8,55 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🤖%3C/text%3E%3C/svg%3E">
 </head>
 <body>
-    <!-- Skip to main content link for accessibility -->
+    <canvas id="three-canvas" aria-hidden="true"></canvas>
+    
     <a href="#main-content" class="skip-link">Skip to main content</a>
     
-    <!-- Global loading overlay -->
     <div id="global-loading" class="global-loading hidden" role="status" aria-live="polite" aria-label="Loading">
         <div class="loading-spinner"></div>
-        <p>Loading...</p>
+        <p>Loading SmartReco...</p>
     </div>
     
-    <!-- Global toast container for notifications -->
     <div id="toast-container" class="toast-container" aria-live="polite" aria-label="Notifications"></div>
 
     <nav class="navbar" role="navigation" aria-label="Main navigation">
         <a href="{% if current_user and current_user.role == 'admin' %}/admin/students{% else %}/{% endif %}" class="brand-logo" aria-label="SmartReco Home">
-            <span aria-hidden="true">🤖</span> SmartReco Admin Studio
+            <span aria-hidden="true">🤖</span> SmartReco
         </a>
         
         <ul class="nav-links" role="menubar">
             {% if current_user %}
                 {% if current_user.role == 'admin' %}
-                    <li><a href="/admin/students" class="nav-link {% if '/admin/students' in request.path or request.path == '/admin' %}active{% endif %}" role="menuitem">👥 Joined Students <span class="nav-badge">Live</span></a></li>
-                    <li><a href="/admin/events" class="nav-link {% if '/admin/events' in request.path %}active{% endif %}" role="menuitem">Behavior Stream</a></li>
-                    <li><a href="/admin/traces" class="nav-link {% if '/admin/traces' in request.path %}active{% endif %}" role="menuitem">Agent Traces</a></li>
-                    <li><a href="/admin/digests" class="nav-link {% if '/admin/digests' in request.path %}active{% endif %}" role="menuitem">Digest Control <span class="nav-badge">Proactive</span></a></li>
+                    <li><a href="/admin/students" class="nav-link {% if '/admin/students' in request.path or request.path == '/admin' %}active{% endif %}" role="menuitem"><span aria-hidden="true">👥</span> <span>Students</span> <span class="nav-badge">Live</span></a></li>
+                    <li><a href="/admin/events" class="nav-link {% if '/admin/events' in request.path %}active{% endif %}" role="menuitem"><span aria-hidden="true">📊</span> <span>Behavior Stream</span></a></li>
+                    <li><a href="/admin/traces" class="nav-link {% if '/admin/traces' in request.path %}active{% endif %}" role="menuitem"><span aria-hidden="true">🔍</span> <span>Agent Traces</span></a></li>
+                    <li><a href="/admin/digests" class="nav-link {% if '/admin/digests' in request.path %}active{% endif %}" role="menuitem"><span aria-hidden="true">📧</span> <span>Digest Control</span> <span class="nav-badge">Proactive</span></a></li>
                 {% else %}
-                    <li><a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" role="menuitem">Catalog</a></li>
-                    <li><a href="/assistant" class="nav-link {% if '/assistant' in request.path %}active{% endif %}" role="menuitem">🤖 AI Assistant</a></li>
-                    <li><a href="/digests" class="nav-link {% if '/digests' in request.path %}active{% endif %}" role="menuitem">My Email Digests</a></li>
+                    <li><a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" role="menuitem"><span aria-hidden="true">📚</span> <span>Catalog</span></a></li>
+                    <li><a href="/assistant" class="nav-link {% if '/assistant' in request.path %}active{% endif %}" role="menuitem"><span aria-hidden="true">🤖</span> <span>AI Assistant</span></a></li>
+                    <li><a href="/digests" class="nav-link {% if '/digests' in request.path %}active{% endif %}" role="menuitem"><span aria-hidden="true">📬</span> <span>My Digests</span></a></li>
                 {% endif %}
                 <li>
                     <a href="/profile" class="nav-link {% if '/profile' in request.path %}active{% endif %}" role="menuitem">
-                        👤 {{ current_user.name }} ({{ current_user.role }})
+                        <span aria-hidden="true">👤</span> <span>{{ current_user.name }} ({{ current_user.role }})</span>
                     </a>
                 </li>
-                <li><a href="/logout" class="btn btn-secondary" style="padding: 0.35rem 0.8rem; font-size: 0.82rem; white-space: nowrap;">Logout</a></li>
+                <li><a href="/logout" class="btn btn-secondary btn-sm" role="menuitem">Logout</a></li>
             {% else %}
-                <li><a href="/assistant" class="nav-link {% if '/assistant' in request.path %}active{% endif %}" role="menuitem">🤖 AI Assistant</a></li>
-                <li><a href="/login" class="nav-link {% if '/login' in request.path %}active{% endif %}" role="menuitem">Login</a></li>
-                <li><a href="/register" class="btn btn-primary" style="padding: 0.4rem 1rem;" role="menuitem">Sign Up</a></li>
+                <li><a href="/assistant" class="nav-link {% if '/assistant' in request.path %}active{% endif %}" role="menuitem"><span aria-hidden="true">🤖</span> <span>AI Assistant</span></a></li>
+                <li><a href="/login" class="nav-link {% if '/login' in request.path %}active{% endif %}" role="menuitem"><span aria-hidden="true">🔐</span> <span>Login</span></a></li>
+                <li><a href="/register" class="btn btn-primary btn-sm" role="menuitem"><span aria-hidden="true">✨</span> <span>Sign Up</span></a></li>
             {% endif %}
         </ul>
+        
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark/light theme" title="Toggle theme">
+            <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        </button>
     </nav>
 
     <main id="main-content" class="container" role="main">
@@ -74,23 +79,20 @@
         <p>SmartReco Behavioral AI Recommendation Platform • Personalized Learning Intelligence</p>
     </footer>
 
-    <!-- Floating AI Learning Advisor Chatbot Widget -->
     <div id="aiChatWidgetContainer">
-        <!-- Floating Toggle Button -->
         <button id="aiChatToggleBtn" title="Ask SmartReco AI Advisor" aria-label="Open AI Advisor chat" aria-expanded="false" aria-controls="aiChatWindow">
             <span aria-hidden="true">🤖</span>
             <span class="chat-btn-text">AI Advisor</span>
             <span class="chat-online-dot" aria-hidden="true"></span>
         </button>
 
-        <!-- Glassmorphic Chat Window -->
         <div id="aiChatWindow" class="chat-window-hidden" role="dialog" aria-label="AI Advisor Chat" aria-modal="false">
             <div class="chat-header">
-                <div style="display: flex; align-items: center; gap: 0.6rem;">
-                    <span style="font-size: 1.4rem;" aria-hidden="true">🤖</span>
+                <div class="chat-header-info">
+                    <div class="chat-avatar" aria-hidden="true">🤖</div>
                     <div>
-                        <strong style="font-size: 0.95rem; color: #ffffff; display: block;">SmartReco AI Advisor</strong>
-                        <span style="font-size: 0.72rem; color: #34d399;">● NVIDIA Llama-3.1-70B RAG Active</span>
+                        <strong class="chat-title">SmartReco AI Advisor</strong>
+                        <span class="chat-status">NVIDIA Llama-3.1-70B RAG Active</span>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -99,14 +101,14 @@
                 </div>
             </div>
 
-            <!-- Quick Suggestions Bar -->
             <div class="chat-suggestions-bar" role="group" aria-label="Quick suggestions">
                 <button class="chip-btn" data-query="Recommend top Agentic AI & RAG masterclasses" type="button">🤖 Agentic AI</button>
                 <button class="chip-btn" data-query="How do I get started in Ethical Hacking & Cybersecurity?" type="button">🛡️ Cybersecurity</button>
                 <button class="chip-btn" data-query="Best Next.js & Fullstack Web Development courses" type="button">🌐 Web Dev</button>
+                <button class="chip-btn" data-query="Python for Data Science & Machine Learning roadmap" type="button">🐍 Python ML</button>
+                <button class="chip-btn" data-query="Cloud Architecture & DevOps certification path" type="button">☁️ Cloud DevOps</button>
             </div>
 
-            <!-- Chat Messages Log -->
             <div id="aiChatMessagesLog" class="chat-messages-log" role="log" aria-live="polite" aria-label="Chat messages">
                 <div class="chat-bubble bot-bubble">
                     <span class="bot-icon" aria-hidden="true">🤖</span>
@@ -116,7 +118,6 @@
                 </div>
             </div>
 
-            <!-- Typing indicator (hidden by default) -->
             <div id="aiChatTypingIndicator" class="chat-typing-indicator hidden" aria-live="polite">
                 <span class="bot-icon" aria-hidden="true">🤖</span>
                 <div class="typing-dots">
@@ -124,20 +125,27 @@
                 </div>
             </div>
 
-            <!-- Chat Input Form -->
             <form id="aiChatInputForm" class="chat-input-form" role="form">
                 <label for="aiChatInputText" class="visually-hidden">Ask AI Advisor</label>
                 <input type="text" id="aiChatInputText" placeholder="Ask AI Advisor about courses or skills..." autocomplete="off" required aria-describedby="chat-input-hint">
                 <span id="chat-input-hint" class="visually-hidden">Press Enter to send</span>
-                <button type="submit" class="chat-send-btn" aria-label="Send message">Send ➔</button>
+                <button type="submit" class="chat-send-btn" aria-label="Send message">
+                    <span aria-hidden="true">➔</span>
+                </button>
             </form>
         </div>
     </div>
 
-    <!-- Non-blocking Event Tracking & AI Chatbot Scripts -->
+    <script src="{{ url_for('static', filename='js/vendor/three.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/vendor/gsap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/vendor/scrolltrigger.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/three-background.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui-enhancements.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tracker.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/ui-enhancements.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/scroll-animations.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/card-3d.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

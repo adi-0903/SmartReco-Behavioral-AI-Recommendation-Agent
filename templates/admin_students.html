@@ -1,99 +1,94 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div style="max-width: 1200px; margin: 0 auto; padding: 1rem 0;">
-    <!-- Page Header -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.8rem; background: var(--bg-card); padding: 1.5rem 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+<div class="reveal animate-in" style="max-width: 1400px; margin: 0 auto; padding: 1rem 0;">
+
+    <div class="section-header reveal animate-in-delay-1">
         <div>
-            <h1 style="font-size: 1.8rem; font-weight: 800; color: #ffffff; margin-bottom: 0.3rem;">
-                👥 Student Registrations & Onboarding Monitor
-            </h1>
-            <p style="color: var(--text-muted); font-size: 0.92rem; margin: 0;">
-                Live feed of all learners joining SmartReco • Verification Status, OTP Audit & Enrollment Activity
-            </p>
+            <h1 class="section-title gradient-text" style="font-size: clamp(1.5rem, 3vw, 2rem);">👥 Student Registrations & Onboarding Monitor</h1>
+            <p class="section-subtitle">Live feed of all learners joining SmartReco • Verification Status, OTP Audit & Enrollment Activity</p>
         </div>
-        <div style="display: flex; gap: 1rem; align-items: center;">
-            <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid var(--primary); padding: 0.6rem 1.2rem; border-radius: var(--radius-sm); text-align: center;">
-                <span style="font-size: 1.4rem; font-weight: 800; color: var(--primary); display: block;">{{ total_students }}</span>
-                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Total Students</span>
-            </div>
+        <div class="glass-card" style="padding: 1.5rem 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-accent); text-align: center; min-width: 180px;" data-magnetic>
+            <span style="font-size: 2.5rem; font-weight: 800; color: var(--primary); display: block; font-family: var(--font-mono);" data-counter="{{ total_students }}">{{ total_students }}</span>
+            <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Total Students</span>
         </div>
     </div>
 
-    <!-- Student List Table / Cards -->
     {% if students %}
-        <div style="display: grid; gap: 1.2rem;">
-            {% for s in students %}
-                <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                    <!-- Student Info -->
-                    <div style="display: flex; align-items: center; gap: 1.2rem;">
-                        <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #a855f7); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #ffffff; font-weight: 700;">
-                            {{ s.user.name[0] | upper if s.user.name else 'S' }}
-                        </div>
-                        <div>
-                            <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.2rem;">
-                                <strong style="font-size: 1.1rem; color: #ffffff;">{{ s.user.name }}</strong>
-                                {% if s.user.is_verified %}
-                                    <span style="background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); font-size: 0.72rem; padding: 0.15rem 0.6rem; border-radius: 12px; font-weight: 600;">
-                                        ✓ OTP Verified
-                                    </span>
-                                {% else %}
-                                    <span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.72rem; padding: 0.15rem 0.6rem; border-radius: 12px; font-weight: 600;">
-                                        ⌛ Pending OTP
-                                    </span>
-                                {% endif %}
+        <div class="glass-card animated-border reveal animate-in-delay-2" style="border-radius: var(--radius-xl); padding: 1.5rem; overflow-x: auto;">
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                {% for s in students %}
+                    <div class="glass-card card-3d" style="padding: 1.5rem; border-radius: var(--radius-lg); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem; transition: all var(--transition-base);" data-card-3d data-magnetic>
+                        <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">
+                            <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #fff; font-weight: 700; box-shadow: var(--shadow-glow);">
+                                {{ s.user.name[0] | upper if s.user.name else 'S' }}
                             </div>
-                            <span style="font-size: 0.88rem; color: var(--text-muted); display: block; font-family: monospace;">
-                                📧 {{ s.user.email }}
-                            </span>
-                            <span style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-top: 0.3rem;">
-                                📅 Joined: {{ s.user.created_at.strftime('%b %d, %Y at %H:%M UTC') if s.user.created_at else 'Recent' }}
-                            </span>
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.3rem;">
+                                    <strong style="font-size: 1.1rem; color: var(--text-bright);">{{ s.user.name }}</strong>
+                                    {% if s.user.is_verified %}
+                                        <span class="chip-btn" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: var(--success); font-size: 0.7rem;">
+                                            ✓ OTP Verified
+                                        </span>
+                                    {% else %}
+                                        <span class="chip-btn" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); color: var(--warning); font-size: 0.7rem;">
+                                            ⌛ Pending OTP
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <span style="font-size: 0.85rem; color: var(--text-muted); display: block; font-family: var(--font-mono);">📧 {{ s.user.email }}</span>
+                                <span style="font-size: 0.75rem; color: var(--text-dim); display: block; margin-top: 0.25rem;">📅 Joined: {{ s.user.created_at.strftime('%b %d, %Y at %H:%M UTC') if s.user.created_at else 'Recent' }}</span>
+                            </div>
                         </div>
+
+                        <div style="display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+                            <div style="text-align: center; padding: 0.75rem 1rem; background: var(--bg-glass); border-radius: var(--radius-md); border: 1px solid var(--border-color); min-width: 100px;">
+                                <strong style="font-size: 1.5rem; color: var(--accent); display: block; font-family: var(--font-mono);">{{ s.enrolled_count }}</strong>
+                                <span style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Enrolled Courses</span>
+                            </div>
+                            <div style="text-align: center; padding: 0.75rem 1rem; background: var(--bg-glass); border-radius: var(--radius-md); border: 1px solid var(--border-color); min-width: 100px;">
+                                <strong style="font-size: 1.5rem; color: var(--secondary); display: block; font-family: var(--font-mono);">{{ s.event_count }}</strong>
+                                <span style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Behavior Events</span>
+                            </div>
+
+                            <form action="/admin/student/delete/{{ s.user.id }}" method="POST" onsubmit="return confirm('Are you sure you want to remove student {{ s.user.email }}?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-danger btn-sm animated-border" data-magnetic>
+                                    <span aria-hidden="true">🗑️</span> Remove Student
+                                </button>
+                            </form>
+                        </div>
+
+                        {% if s.enrolled_courses %}
+                            <div style="width: 100%; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 600;">Enrolled in:</span>
+                                {% for c in s.enrolled_courses %}
+                                    <span class="chip-btn" style="font-size: 0.7rem; padding: 0.3rem 0.6rem;">📚 {{ c.title }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
-
-                    <!-- Enrolled Courses & Activity Stats -->
-                    <div style="display: flex; align-items: center; gap: 2rem;">
-                        <div style="text-align: center;">
-                            <strong style="font-size: 1.2rem; color: #38bdf8; display: block;">{{ s.enrolled_count }}</strong>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Enrolled Courses</span>
-                        </div>
-                        <div style="text-align: center;">
-                            <strong style="font-size: 1.2rem; color: #a855f7; display: block;">{{ s.event_count }}</strong>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Behavior Events</span>
-                        </div>
-
-                        <!-- Action: Remove Student -->
-                        <form action="/admin/student/delete/{{ s.user.id }}" method="POST" onsubmit="return confirm('Are you sure you want to remove student {{ s.user.email }}?');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-secondary" style="color: #f87171; border-color: rgba(248, 113, 113, 0.3); padding: 0.4rem 0.9rem; font-size: 0.8rem;">
-                                Remove Student
-                            </button>
-                        </form>
-                    </div>
-
-                    <!-- Enrolled Courses List Tags -->
-                    {% if s.enrolled_courses %}
-                        <div style="width: 100%; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
-                            <span style="font-size: 0.78rem; color: var(--text-muted);">Enrolled in:</span>
-                            {% for c in s.enrolled_courses %}
-                                <span style="background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-color); color: #ffffff; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 6px;">
-                                    📚 {{ c.title }}
-                                </span>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-            {% endfor %}
+                {% endfor %}
+            </div>
         </div>
     {% else %}
-        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 4rem 2rem; text-align: center;">
-            <span style="font-size: 3rem; display: block; margin-bottom: 1rem;">👥</span>
-            <h2 style="font-size: 1.4rem; color: #ffffff; margin-bottom: 0.5rem;">No Registered Students Yet</h2>
-            <p style="color: var(--text-muted); font-size: 0.95rem; max-width: 500px; margin: 0 auto 1.5rem;">
+        <div class="glass-card animated-border reveal animate-in-delay-2" style="border-radius: var(--radius-xl); padding: 5rem 3rem; text-align: center; border: 1px dashed var(--border-color);">
+            <span style="font-size: 4rem; display: block; margin-bottom: 1.5rem;" aria-hidden="true">👥</span>
+            <h2 style="font-size: 1.5rem; color: var(--text-bright); margin-bottom: 0.75rem; font-weight: 700;">No Registered Students Yet</h2>
+            <p style="color: var(--text-muted); font-size: 1rem; max-width: 550px; margin: 0 auto 2rem; line-height: 1.7;">
                 When new learners register and verify their 6-digit OTP code, their account details, joined timestamp, and enrolled courses will appear here in real-time.
             </p>
         </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.SmartRecoScroll) {
+        window.SmartRecoScroll.refresh();
+    }
+});
+</script>
 {% endblock %}
