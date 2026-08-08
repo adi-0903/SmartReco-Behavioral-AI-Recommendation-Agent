@@ -632,5 +632,22 @@ class VectorStoreManager:
         return success_count
 
 
-# Global singleton instance
-vector_store = VectorStoreManager()
+# Global singleton instance (lazy initialization)
+_vector_store_instance = None
+
+
+def get_vector_store():
+    """Get or create the vector store instance (lazy initialization)."""
+    global _vector_store_instance
+    if _vector_store_instance is None:
+        _vector_store_instance = VectorStoreManager()
+    return _vector_store_instance
+
+
+# Backward compatibility: create a proxy that initializes on first attribute access
+class _LazyVectorStore:
+    def __getattr__(self, name):
+        return getattr(get_vector_store(), name)
+
+
+vector_store = _LazyVectorStore()

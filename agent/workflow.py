@@ -6,7 +6,7 @@ from typing import TypedDict, List, Dict, Any, Optional
 from openai import OpenAI
 
 from config import Config
-from vector_store import vector_store
+from vector_store import get_vector_store
 from models import Product, db
 from agent.observability import AgentTrace
 
@@ -234,7 +234,7 @@ class AgenticRecommendationEngine:
         Node 2: Strict Topic-Grounded Candidate Retrieval.
         Ensures recommendations are 100% relevant to the user's primary interest category/topic.
         """
-        vector_candidates = vector_store.semantic_search(
+        vector_candidates = get_vector_store().semantic_search(
             query_text=search_query,
             top_k=top_k,
             category_filter=top_category if (top_category and top_category != "All") else None

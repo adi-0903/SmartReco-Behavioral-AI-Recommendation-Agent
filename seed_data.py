@@ -1,6 +1,6 @@
 import logging
 from models import db, User, Product, Event, Recommendation
-from vector_store import vector_store
+from vector_store import get_vector_store
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -329,5 +329,5 @@ def seed_database():
 
     # 3. Dual-Write sync all products into ChromaDB Vector Store
     all_products = Product.query.all()
-    synced_count = vector_store.sync_all_products(all_products)
+    synced_count = get_vector_store().sync_all_products(all_products)
     logger.info(f"Vector Store Dual-Write initialized: Synced {synced_count}/{len(all_products)} products.")

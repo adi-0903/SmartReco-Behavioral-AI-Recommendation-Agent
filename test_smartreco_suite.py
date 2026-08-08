@@ -3,7 +3,7 @@ import json
 import logging
 from app import app, db
 from models import User, Product, Event, Recommendation, DigestLog, Enrollment
-from vector_store import vector_store
+from vector_store import get_vector_store
 from agent.workflow import recommendation_engine
 from agent.observability import get_all_traces, AGENT_TRACES
 from scheduler import generate_proactive_digests_job
@@ -44,7 +44,7 @@ def run_comprehensive_test_suite():
         res = client.get('/')
         assert_test("Catalog Homepage returns HTTP 200 OK", res.status_code == 200)
         assert_test("Database contains seeded products", Product.query.count() >= 10)
-        assert_test("ChromaDB Vector Store contains embeddings", vector_store.get_total_count() >= 10)
+        assert_test("ChromaDB Vector Store contains embeddings", get_vector_store().get_total_count() >= 10)
 
         # -------------------------------------------------------------
         # TEST 2: AUTHENTICATION & USER ROLES
@@ -159,7 +159,7 @@ def run_comprehensive_test_suite():
         assert_test("New product written to SQL DB", new_prod is not None)
 
         # Check Dual-Write in Vector DB via semantic search
-        vector_matches = vector_store.semantic_search("Autonomous Multi-Agent Systems", top_k=3)
+        vector_matches = get_vector_store().semantic_search("Autonomous Multi-Agent Systems", top_k=3)
         found_in_vector = any(m['product_id'] == new_prod.id for m in vector_matches)
         assert_test("Dual-Write SUCCESS: New product indexed in ChromaDB Vector Store", found_in_vector)
 

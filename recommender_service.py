@@ -21,7 +21,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from config import Config
 from models import db, User, Product, Event, Recommendation, UserFeedback, UserProfile, ProductSimilarity, RecommendationImpression, RankingModel, ABTestAssignment
-from vector_store import vector_store
+from vector_store import get_vector_store
 
 logger = logging.getLogger(__name__)
 
@@ -547,8 +547,8 @@ class DiversityOptimizer:
         if not product:
             return None
         
-        doc_text = vector_store._prepare_document(product.to_dict())
-        embedding = np.array(vector_store.embedding_fn([doc_text])[0])
+        doc_text = get_vector_store()._prepare_document(product.to_dict())
+        embedding = np.array(get_vector_store().embedding_fn([doc_text])[0])
         self.embedding_cache[product_id] = embedding
         return embedding
     
@@ -768,7 +768,7 @@ class AdvancedRecommendationEngine:
         # 1. Semantic search (vector store)
         if events:
             intent_text = self._build_intent_query(events, user_profile)
-            semantic_results = vector_store.semantic_search(intent_text, top_k=top_k)
+            semantic_results = get_vector_store().semantic_search(intent_text, top_k=top_k)
             for r in semantic_results:
                 results.append(RetrievalResult(
                     product_id=r['product_id'],

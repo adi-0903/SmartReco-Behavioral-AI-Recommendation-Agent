@@ -11,7 +11,7 @@ from structlog.stdlib import ProcessorFormatter
 
 from config import Config
 from models import db, User, Product, Event, Recommendation, DigestLog, Enrollment, UserProfile
-from vector_store import vector_store
+from vector_store import get_vector_store
 from agent.workflow import recommendation_engine
 from agent.observability import get_all_traces, get_trace_by_id
 from scheduler import init_scheduler, generate_proactive_digests_job
@@ -108,14 +108,10 @@ def is_admin():
 
 @app.before_request
 def setup_app_context():
-    """Ensure tables exist and seed data on first request."""
+    """Ensure tables exist and initialize scheduler on first request."""
     if not getattr(app, '_db_initialized', False):
         with app.app_context():
             db.create_all()
-            try:
-                seed_database()
-            except Exception as e:
-                logger.error("db_seeding_error", error=str(e))
             try:
                 init_scheduler(app)
             except Exception as e:
@@ -249,7 +245,7 @@ def product_detail(product_id):
     product = Product.query.get_or_404(product_id)
     
     # Vector DB Semantic Search for Similar Products
-    similar_vector_matches = vector_store.semantic_search(
+    similar_vector_matches = get_vector_store().semantic_search(
         query_text=f"{product.title} {product.category} {product.description}",
         top_k=4
     )
@@ -521,7 +517,7 @@ def api_chat():
         return jsonify({'reply': reply, 'matched_products': []})
 
     # 3. RAG Semantic Search over 31 Masterclasses
-    vector_matches = vector_store.semantic_search(query_text=user_msg, top_k=3)
+    vector_matches = get_vector_store().semantic_search(query_text=user_msg, top_k=3)
     matched_prods = []
     for match in vector_matches:
         p = Product.query.get(match['product_id'])
@@ -1038,7 +1034,7 @@ def admin_catalog():
         return redirect(url_for('login'))
 
     products = Product.query.order_by(Product.id.desc()).all()
-    vector_count = vector_store.get_total_count()
+    vector_count = get_vector_store().get_total_count()
 
     return render_template(
         'admin_catalog.html',
@@ -1101,7 +1097,7 @@ def admin_save_product():
         logger.info("product_created", product_id=product.id, admin_id=get_current_user().id)
 
     # DUAL-WRITE OPERATION: Synchronize immediately to ChromaDB Vector Store
-    vector_success = vector_store.add_or_update_product(product.to_dict())
+    vector_success = get_vector_store().add_or_update_product(product.to_dict())
     if vector_success:
         flash("Dual-Write SUCCESS: Product embedding updated in Vector DB.", "success")
     else:
@@ -1125,7 +1121,7 @@ def admin_delete_product(product_id):
     db.session.commit()
 
     # DUAL-WRITE OPERATION: Delete from Vector Store
-    vector_success = vector_store.delete_product(product_id)
+    vector_success = get_vector_store().delete_product(product_id)
     if vector_success:
         flash(f"Dual-Write SUCCESS: Deleted '{title}' from SQL and Vector DB.", "success")
     else:
@@ -1280,6 +1276,11 @@ def admin_trigger_user_digest(user_id):
 # Initialize Flask-Migrate
 from flask_migrate import Migrate
 migrate = Migrate(app, db)
+
+
+def create_app():
+    """Application factory for deployment seeding and testing."""
+    return app
 
 
 if __name__ == '__main__':
