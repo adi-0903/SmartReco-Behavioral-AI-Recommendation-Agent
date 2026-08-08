@@ -10,7 +10,7 @@ import structlog
 from structlog.stdlib import ProcessorFormatter
 
 from config import Config
-from models import db, User, Product, Event, Recommendation, DigestLog, Enrollment
+from models import db, User, Product, Event, Recommendation, DigestLog, Enrollment, UserProfile
 from vector_store import vector_store
 from agent.workflow import recommendation_engine
 from agent.observability import get_all_traces, get_trace_by_id
@@ -18,6 +18,7 @@ from scheduler import init_scheduler, generate_proactive_digests_job
 from seed_data import seed_database
 from email_service import send_otp_email
 from cache_service import cache_service
+from recommender_service import advanced_recommender
 
 
 def configure_logging():
@@ -746,6 +747,218 @@ def refresh_recommendations():
     except Exception as e:
         logger.error("recommendation_refresh_error", error=str(e), user_id=current_user.id)
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# =============================================================================
+# ADVANCED RECOMMENDATION ENGINE API (Hackathon-Grade)
+# =============================================================================
+
+@app.route('/api/v1/recommendations', methods=['POST'])
+@limiter.limit("30 per minute")
+@csrf.exempt
+def advanced_recommendations():
+    """Advanced recommendation endpoint with A/B testing, hybrid retrieval, and LightGBM ranking."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'status': 'error', 'message': 'User authentication required'}), 401
+
+    data = request.get_json(silent=True) or {}
+    session_id = data.get('session_id', session.get('session_id', 'sess_api'))
+    top_k = min(data.get('top_k', 5), 10)
+    trigger_reason = data.get('trigger_reason', 'api_request')
+
+    # Fetch recent user behavioral events
+    user_events = Event.query.filter_by(user_id=current_user.id).order_by(Event.timestamp.desc()).limit(30).all()
+    event_dicts = [e.to_dict() for e in user_events]
+
+    # Get A/B variant
+    variant = advanced_recommender.get_ab_variant(current_user.id)
+
+    try:
+        res = advanced_recommender.get_recommendations(
+            user_id=current_user.id,
+            session_id=session_id,
+            events=event_dicts,
+            trigger_reason=trigger_reason,
+            top_k=top_k,
+            experiment_variant=variant
+        )
+
+        # Add variant info to response
+        res['metadata']['variant'] = variant
+        res['metadata']['model_version'] = 'advanced_v1'
+
+        # Persist recommendation
+        rec_record = Recommendation(
+            user_id=current_user.id,
+            narrative=res['narrative'],
+            recommended_product_ids_json=str(res['recommended_product_ids']),
+            trigger_reason=trigger_reason,
+            metadata_json=json.dumps(res.get('metadata', {}))
+        )
+        db.session.add(rec_record)
+        db.session.commit()
+
+        # Cache
+        cache_service.invalidate_recommendation(current_user.id)
+        cache_service.set_recommendation(current_user.id, res, ttl=Config.RECOMMENDATION_TTL_SECONDS)
+
+        logger.info("advanced_recommendation_generated", 
+                   user_id=current_user.id, 
+                   variant=variant,
+                   product_count=len(res['recommended_products']),
+                   generation_time_ms=res['metadata'].get('generation_time_ms'))
+        return jsonify({'status': 'success', 'recommendation': res})
+    except Exception as e:
+        logger.error("advanced_recommendation_error", error=str(e), user_id=current_user.id)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/v1/recommendations/feedback', methods=['POST'])
+@limiter.limit("60 per minute")
+@csrf.exempt
+def recommendation_feedback():
+    """Record explicit/implicit feedback for online learning."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'status': 'error', 'message': 'User authentication required'}), 401
+
+    data = request.get_json(silent=True) or {}
+    product_id = data.get('product_id')
+    feedback_type = data.get('feedback_type')  # explicit_like, explicit_dislike, implicit_click, implicit_dwell, implicit_enroll
+    value = data.get('value', 1.0)
+    context = data.get('context', {})
+    session_id = data.get('session_id', session.get('session_id'))
+    recommendation_id = data.get('recommendation_id')
+
+    if not product_id or not feedback_type:
+        return jsonify({'status': 'error', 'message': 'product_id and feedback_type required'}), 400
+
+    try:
+        advanced_recommender.record_feedback(
+            user_id=current_user.id,
+            product_id=product_id,
+            feedback_type=feedback_type,
+            value=value,
+            context=context,
+            session_id=session_id,
+            recommendation_id=recommendation_id
+        )
+        return jsonify({'status': 'success', 'message': 'Feedback recorded'})
+    except Exception as e:
+        logger.error("feedback_error", error=str(e), user_id=current_user.id)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/v1/onboarding/quiz', methods=['POST'])
+@limiter.limit("10 per minute")
+@csrf.exempt
+def onboarding_quiz():
+    """Submit onboarding quiz responses for cold-start personalization."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'status': 'error', 'message': 'User authentication required'}), 401
+
+    data = request.get_json(silent=True) or {}
+    interest_areas = data.get('interest_areas', [])  # List of strings
+    skill_level = data.get('skill_level', 'beginner')  # beginner, intermediate, advanced
+    goals = data.get('goals', [])  # List of goal strings
+    time_commitment = data.get('time_commitment', '5-10')  # hours per week
+
+    if not interest_areas:
+        return jsonify({'status': 'error', 'message': 'At least one interest area required'}), 400
+
+    try:
+        profile = UserProfile.query.filter_by(user_id=current_user.id).first()
+        if not profile:
+            profile = UserProfile(user_id=current_user.id)
+            db.session.add(profile)
+
+        quiz_data = {
+            'interest_areas': interest_areas,
+            'skill_level': skill_level,
+            'goals': goals,
+            'time_commitment': time_commitment,
+            'completed_at': datetime.utcnow().isoformat()
+        }
+        profile.quiz_responses_json = json.dumps(quiz_data)
+        profile.skill_level = skill_level
+        profile.learning_goals_json = json.dumps(goals)
+        profile.updated_at = datetime.utcnow()
+
+        db.session.commit()
+
+        # Trigger immediate recommendation refresh
+        user_events = Event.query.filter_by(user_id=current_user.id).order_by(Event.timestamp.desc()).limit(20).all()
+        event_dicts = [e.to_dict() for e in user_events]
+        
+        res = advanced_recommender.get_recommendations(
+            user_id=current_user.id,
+            session_id=session.get('session_id', 'sess_quiz'),
+            events=event_dicts,
+            trigger_reason="onboarding_quiz",
+            top_k=5
+        )
+
+        return jsonify({'status': 'success', 'message': 'Quiz completed', 'recommendations': res})
+    except Exception as e:
+        db.session.rollback()
+        logger.error("onboarding_quiz_error", error=str(e), user_id=current_user.id)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/v1/user/profile', methods=['GET'])
+@limiter.limit("30 per minute")
+@csrf.exempt
+def get_user_profile():
+    """Get enriched user profile with affinities and engagement."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'status': 'error', 'message': 'User authentication required'}), 401
+
+    profile = UserProfile.query.filter_by(user_id=current_user.id).first()
+    if not profile:
+        return jsonify({'status': 'success', 'profile': None, 'message': 'Profile not yet created'})
+
+    return jsonify({'status': 'success', 'profile': profile.to_dict()})
+
+
+@app.route('/api/v1/ab/variant', methods=['GET'])
+@limiter.limit("10 per minute")
+@csrf.exempt
+def get_ab_variant():
+    """Get current A/B test variant for user."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'status': 'error', 'message': 'User authentication required'}), 401
+
+    experiment = request.args.get('experiment', 'recommendation_algorithm')
+    variant = advanced_recommender.get_ab_variant(current_user.id, experiment)
+    return jsonify({'status': 'success', 'variant': variant, 'experiment': experiment})
+
+
+# Initialize advanced recommender on startup (lazy, with timeout protection)
+@app.before_request
+def init_advanced_recommender():
+    if not getattr(app, '_advanced_recommender_initialized', False):
+        # Skip heavy initialization during tests
+        if app.config.get('TESTING', False):
+            app._advanced_recommender_initialized = True
+            return
+        try:
+            # Run in background thread to avoid blocking
+            import threading
+            def init_bg():
+                try:
+                    advanced_recommender.initialize()
+                    app._advanced_recommender_initialized = True
+                    logger.info("Advanced recommender initialized successfully")
+                except Exception as e:
+                    logger.error("advanced_recommender_init_error", error=str(e))
+            threading.Thread(target=init_bg, daemon=True).start()
+            app._advanced_recommender_initialized = True  # Mark as initialized to avoid repeated attempts
+        except Exception as e:
+            logger.error("advanced_recommender_init_error", error=str(e))
 
 
 # =============================================================================

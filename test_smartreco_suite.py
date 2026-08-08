@@ -16,6 +16,9 @@ def run_comprehensive_test_suite():
     print("STARTING SMARTRECO FULL IN-AND-OUT VERIFICATION SUITE")
     print("=======================================================\n")
     
+    # Enable testing mode to skip heavy initialization
+    app.config['TESTING'] = True
+    
     client = app.test_client()
     passed_tests = 0
     total_tests = 0
