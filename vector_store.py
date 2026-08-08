@@ -621,7 +621,7 @@ class VectorStoreManager:
                 all_ids.append(prod_dict['id'])
         
         # Rebuild FAISS index with all embeddings
-        if self.use_faiss and self.faiss_index and all_embeddings:
+        if self.use_faiss and self.faiss_index and self.faiss_index._available and all_embeddings:
             logger.info(f"Rebuilding FAISS index with {len(all_embeddings)} vectors")
             self.faiss_index = FAISSIndexManager(dimension=self.dimension)
             self.faiss_index.train(np.array(all_embeddings, dtype=np.float32))
